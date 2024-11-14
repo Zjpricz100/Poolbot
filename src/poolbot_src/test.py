@@ -37,21 +37,26 @@ def main():
     rospy.init_node('sawyer_kinematics')
     kin = sawyer_kinematics('right')
     limb = intera_interface.Limb("right")
-    move_at_velocity(kin, limb, 0.5, np.array([1.0, 0.0, 0.0]))
-    # tfBuffer = tf2_ros.Buffer()
-    # listener = tf2_ros.TransformListener(tfBuffer)
+    #move_at_velocity(kin, limb, 0.5, np.array([1.0, 0.0, 0.0]))
+    tfBuffer = tf2_ros.Buffer()
+    listener = tf2_ros.TransformListener(tfBuffer)
 
-    # try:
-    #     trans = tfBuffer.lookup_transform('base', 'right_hand', rospy.Time(0), rospy.Duration(10.0))
-    # except Exception as e:
-    #     print(e)
+    try:
+        trans = tfBuffer.lookup_transform('base', 'right_hand', rospy.Time(0), rospy.Duration(10.0))
+    except Exception as e:
+        print(e)
 
-    # current_position = np.array([getattr(trans.transform.translation, dim) for dim in ('x', 'y', 'z')])
-    # print("Current Position:", current_position)
-    # goal_position = current_position
-    # goal_position[0] += 0.5 
+    current_position = np.array([getattr(trans.transform.translation, dim) for dim in ('x', 'y', 'z')])
+    print("Current Position:", current_position)
+    goal_position = current_position
+    goal_position[0] += 0.5 
     
-    # trajectory = LinearTrajectory(current_position, goal_position, 0.5)
+    trajectory = LinearTrajectory(current_position, goal_position, 0.5)
+    path = MotionPath(limb, kin, ik_solver, trajectory)
+    robot_trajectory =  path.to_robot_trajectory(num_way, True)
+    plan = planner.plan_to_joint_pos(robot_trajectory.joint_trajectory.points[0].positions)
+    controller = controllers.FeedforwardJointVelocityController(limb, kin)
+
     # controller = controllers.FeedforwardJointVelocityController(limb, kin)
     # controller.execute_path
 

@@ -12,7 +12,7 @@ matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 # Lab imports
-from utils import *
+from utils.utils import *
 
 # ROS imports
 try:
@@ -66,6 +66,90 @@ class Controller:
         """
         pass
 
+    def interpolate_path(self, path, t, current_index = 0):
+        """
+        interpolates over a :obj:`moveit_msgs.msg.RobotTrajectory` to produce desired
+        positions, velocities, and accelerations at a specified time
+
+        Parameters
+        ----------
+        path : :obj:`moveit_msgs.msg.RobotTrajectory`
+        t : float
+            the time from start
+        current_index : int
+            waypoint index from which to start search
+
+        Returns
+        -------
+        target_position : 7x' or 6x' :obj:`numpy.ndarray` 
+            desired positions
+        target_velocity : 7x' or 6x' :obj:`numpy.ndarray` 
+            desired velocities
+        target_acceleration : 7x' or 6x' :obj:`numpy.ndarray` 
+            desired accelerations
+        current_index : int
+            waypoint index at which search was terminated 
+        """
+
+        # a very small number (should be much smaller than rate)
+        epsilon = 0.0001
+
+        max_index = len(path.joint_trajectory.points)-1
+
+        # If the time at current index is greater than the current time,
+        # start looking from the beginning
+        if (path.joint_trajectory.points[current_index].time_from_start.to_sec() > t):
+            current_index = 0
+
+        # Iterate forwards so that you're using the latest time
+        while (
+            not rospy.is_shutdown() and \
+            current_index < max_index and \
+            path.joint_trajectory.points[current_index+1].time_from_start.to_sec() < t+epsilon
+        ):
+            current_index = current_index+1
+
+        # Perform the interpolation
+        if current_index < max_index:
+            time_low = path.joint_trajectory.points[current_index].time_from_start.to_sec()
+            time_high = path.joint_trajectory.points[current_index+1].time_from_start.to_sec()
+
+            target_position_low = np.array(
+                path.joint_trajectory.points[current_index].positions
+            )
+            target_velocity_low = np.array(
+                path.joint_trajectory.points[current_index].velocities
+            )
+            target_acceleration_low = np.array(
+                path.joint_trajectory.points[current_index].accelerations
+            )
+
+            target_position_high = np.array(
+                path.joint_trajectory.points[current_index+1].positions
+            )
+            target_velocity_high = np.array(
+                path.joint_trajectory.points[current_index+1].velocities
+            )
+            target_acceleration_high = np.array(
+                path.joint_trajectory.points[current_index+1].accelerations
+            )
+
+            target_position = target_position_low + \
+                (t - time_low)/(time_high - time_low)*(target_position_high - target_position_low)
+            target_velocity = target_velocity_low + \
+                (t - time_low)/(time_high - time_low)*(target_velocity_high - target_velocity_low)
+            target_acceleration = target_acceleration_low + \
+                (t - time_low)/(time_high - time_low)*(target_acceleration_high - target_acceleration_low)
+
+        # If you're at the last waypoint, no interpolation is needed
+        else:
+            target_position = np.array(path.joint_trajectory.points[current_index].positions)
+            target_velocity = np.array(path.joint_trajectory.points[current_index].velocities)
+            target_acceleration = np.array(path.joint_trajectory.points[current_index].velocities)
+
+        return (target_position, target_velocity, target_acceleration, current_index)
+
+
     def shutdown(self):
         """
         Code to run on shutdown. This is good practice for safety
@@ -83,7 +167,14 @@ class Controller:
         zero_vel_dict = joint_array_to_dict(np.zeros(NUM_JOINTS), self._limb)
         self._limb.set_joint_velocities(zero_vel_dict)
 
-    def plot_results(self, times, actual_positions, actual_velocities, target_positions, target_velocities): #FIX
+    def plot_results(
+        self,
+        times,
+        actual_positions, 
+        actual_velocities, 
+        target_positions, 
+        target_velocities
+    ):
         """
         Plots results.
         If the path is in joint space, it will plot both workspace and jointspace plots.
@@ -204,34 +295,15 @@ class Controller:
         plt.ylabel("Error Angle of End Effector (rad)")
         print("Close the plot window to continue")
         plt.show()
-
-    def get_ik(self, pos):
-        """
-        takes in position (and orientation) and returns the pose IK for the robot
-        
-        Parameters
-        ----------
-        Inputs:
-        pos : 6x': np.array of position
-
-        Outputs:
-        ik : 7x' : np.array of joint inputs
-        """
-        return self._kin.inverse_kinematics(pos[:3], pos[3:])
         
 
-    def get_joint_velocity(self, vel):
-        pi = self._kin.jacobian_pseudo_inverse()
-        q_dot = (pi.dot(vel)).A1
-        return q_dot
-
-    def execute_path(self, traj, rate=200, timeout=None, log=False):
+    def execute_path(self, path, rate=200, timeout=None, log=False):
         """
-        takes in a trajectory and moves the sawyer in order to follow the trajectory  
+        takes in a path and moves the sawyer in order to follow the path.  
 
         Parameters
         ----------
-        traj : :obj:`Trajectory`
+        path : :obj:`moveit_msgs.msg.RobotTrajectory`
         rate : int
             This specifies how many ms between loops.  It is important to
             use a rate and not a regular while loop because you want the
@@ -259,7 +331,7 @@ class Controller:
             target_velocities = list()
 
         # For interpolation
-        total_time = traj.total_time
+        max_index = len(path.joint_trajectory.points)-1
         current_index = 0
 
         # For timing
@@ -280,9 +352,12 @@ class Controller:
             current_velocity = get_joint_velocities(self._limb)
 
             # Get the desired position, velocity, and effort
-            target_position = self.get_ik(traj.target_pose(t))
-            target_velocity = self.get_joint_velocity(traj.target_velocity(t))
-            target_acceleration = traj.target_acceleration(t) # this doesn't matter
+            (
+                target_position, 
+                target_velocity, 
+                target_acceleration, 
+                current_index
+            ) = self.interpolate_path(path, t, current_index)
 
             # For plotting
             if log:
@@ -298,14 +373,20 @@ class Controller:
             # Sleep for a bit (to let robot move)
             r.sleep()
 
-            if t > total_time: # make sure we don't go past total time
+            if current_index >= max_index:
                 self.stop_moving()
                 break
 
         if log:
-            self.plot_results(times, actual_positions, actual_velocities, target_positions, target_velocities)
-
+            self.plot_results(
+                times,
+                actual_positions, 
+                actual_velocities, 
+                target_positions, 
+                target_velocities
+            )
         return True
+
 
 class FeedforwardJointVelocityController(Controller):
     def step_control(self, target_position, target_velocity, target_acceleration):
