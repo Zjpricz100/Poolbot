@@ -37,7 +37,7 @@ def main():
     rospy.init_node('sawyer_kinematics')
     kin = sawyer_kinematics('right')
     limb = intera_interface.Limb("right")
-    #move_at_velocity(kin, limb, 0.5, np.array([1.0, 0.0, 0.0]))
+    move_at_velocity(kin, limb, 0.5, np.array([1.0, 0.0, 0.0]))
     tfBuffer = tf2_ros.Buffer()
     listener = tf2_ros.TransformListener(tfBuffer)
 
