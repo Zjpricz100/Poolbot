@@ -2,7 +2,7 @@
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "/home/cc/ee106a/fa24/class/ee106a-abn/Poolbot/install")
+  set(CMAKE_INSTALL_PREFIX "/home/cc/ee106a/fa24/class/ee106a-add/ros_workspaces/Poolbot/install")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
@@ -39,7 +39,7 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("/home/cc/ee106a/fa24/class/ee106a-abn/Poolbot/build/gtest/googletest/cmake_install.cmake")
+  include("/home/cc/ee106a/fa24/class/ee106a-add/ros_workspaces/Poolbot/build/gtest/googletest/cmake_install.cmake")
 
 endif()
 

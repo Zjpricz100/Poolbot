@@ -43,10 +43,10 @@ RM = /usr/bin/cmake -E remove -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/cc/ee106a/fa24/class/ee106a-abn/Poolbot/src
+CMAKE_SOURCE_DIR = /home/cc/ee106a/fa24/class/ee106a-add/ros_workspaces/Poolbot/src
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/cc/ee106a/fa24/class/ee106a-abn/Poolbot/build
+CMAKE_BINARY_DIR = /home/cc/ee106a/fa24/class/ee106a-add/ros_workspaces/Poolbot/build
 
 # Utility rule file for tests.
 
@@ -67,6 +67,6 @@ CMakeFiles/tests.dir/clean:
 .PHONY : CMakeFiles/tests.dir/clean
 
 CMakeFiles/tests.dir/depend:
-	cd /home/cc/ee106a/fa24/class/ee106a-abn/Poolbot/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/cc/ee106a/fa24/class/ee106a-abn/Poolbot/src /home/cc/ee106a/fa24/class/ee106a-abn/Poolbot/src /home/cc/ee106a/fa24/class/ee106a-abn/Poolbot/build /home/cc/ee106a/fa24/class/ee106a-abn/Poolbot/build /home/cc/ee106a/fa24/class/ee106a-abn/Poolbot/build/CMakeFiles/tests.dir/DependInfo.cmake --color=$(COLOR)
+	cd /home/cc/ee106a/fa24/class/ee106a-add/ros_workspaces/Poolbot/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/cc/ee106a/fa24/class/ee106a-add/ros_workspaces/Poolbot/src /home/cc/ee106a/fa24/class/ee106a-add/ros_workspaces/Poolbot/src /home/cc/ee106a/fa24/class/ee106a-add/ros_workspaces/Poolbot/build /home/cc/ee106a/fa24/class/ee106a-add/ros_workspaces/Poolbot/build /home/cc/ee106a/fa24/class/ee106a-add/ros_workspaces/Poolbot/build/CMakeFiles/tests.dir/DependInfo.cmake --color=$(COLOR)
 .PHONY : CMakeFiles/tests.dir/depend
 

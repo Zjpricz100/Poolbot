@@ -13,7 +13,7 @@ set(CMAKE_MAKEFILE_DEPENDS
   "catkin/catkin_generated/version/package.cmake"
   "catkin_generated/installspace/_setup_util.py"
   "catkin_generated/order_packages.cmake"
-  "/home/cc/ee106a/fa24/class/ee106a-abn/Poolbot/src/CMakeLists.txt"
+  "/home/cc/ee106a/fa24/class/ee106a-add/ros_workspaces/Poolbot/src/CMakeLists.txt"
   "/opt/ros/noetic/share/catkin/cmake/all.cmake"
   "/opt/ros/noetic/share/catkin/cmake/assert.cmake"
   "/opt/ros/noetic/share/catkin/cmake/atomic_configure_file.cmake"

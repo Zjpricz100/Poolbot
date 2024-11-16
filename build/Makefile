@@ -48,10 +48,10 @@ RM = /usr/bin/cmake -E remove -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/cc/ee106a/fa24/class/ee106a-abn/Poolbot/src
+CMAKE_SOURCE_DIR = /home/cc/ee106a/fa24/class/ee106a-add/ros_workspaces/Poolbot/src
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/cc/ee106a/fa24/class/ee106a-abn/Poolbot/build
+CMAKE_BINARY_DIR = /home/cc/ee106a/fa24/class/ee106a-add/ros_workspaces/Poolbot/build
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -137,9 +137,9 @@ test/fast: test
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/cc/ee106a/fa24/class/ee106a-abn/Poolbot/build/CMakeFiles /home/cc/ee106a/fa24/class/ee106a-abn/Poolbot/build/CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/cc/ee106a/fa24/class/ee106a-add/ros_workspaces/Poolbot/build/CMakeFiles /home/cc/ee106a/fa24/class/ee106a-add/ros_workspaces/Poolbot/build/CMakeFiles/progress.marks
 	$(MAKE) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/cc/ee106a/fa24/class/ee106a-abn/Poolbot/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/cc/ee106a/fa24/class/ee106a-add/ros_workspaces/Poolbot/build/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
