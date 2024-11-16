@@ -22,7 +22,7 @@ import tf2_ros
 import intera_interface
 from moveit_msgs.msg import DisplayTrajectory, RobotState
 
-def move_at_velocity(kin, limb, target_displacement, dir, step_size = 0.1, time_step = 0.1):
+def move_at_velocity(kin, limb, target_displacement, dir, step_size = 0.5, time_step = 0.1):
     dir = normalize(dir)
     v_linear = dir * step_size
     v_ang = np.array([0, 0, 0])
@@ -50,7 +50,8 @@ def main():
     rospy.init_node('sawyer_kinematics')
     kin = sawyer_kinematics('right')
     limb = intera_interface.Limb("right")
-    move_at_velocity(kin, limb, 0.5, np.array([0, 1.0, 0.0]))
+                                                #[x, y, z]
+    move_at_velocity(kin, limb, 0.125, np.array([0, -1.0, 0.0])) # Facing sawyer, goes to the right
     tfBuffer = tf2_ros.Buffer()
     listener = tf2_ros.TransformListener(tfBuffer)
 
