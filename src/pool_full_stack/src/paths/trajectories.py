@@ -150,22 +150,14 @@ class Trajectory:
             print("Saved animation to %s.gif" % trajectory_name)
 
 class LinearTrajectory(Trajectory):
-    def __init__(self, start_position, goal_position, target_velocity, desired_orientation = np.array([0, 1, 0, 0])):
-        """
-        start_position is 1x3 np array
-        goal_position is 1x3 np array
-        target_velocity is velocity we want to travel at from start position to goal_position
-        """
-
-        Trajectory.__init__(self)
+    def __init__(self, start_position, goal_position, total_time):
+        self.total_time = total_time
         self.start_position = start_position
         self.goal_position = goal_position
-        self.distance = np.linalg.norm(self.goal_position - self.start_position)
-
-        self.constant_velocity = target_velocity
-        self.total_time = self.distance / self.constant_velocity
-        self.direction_vector = (goal_position - start_position) / self.distance # normalized direction vector
-        self.desired_orientation = desired_orientation
+        self.distance = self.goal_position - self.start_position
+        self.acceleration = (self.distance * 4.0) / (self.total_time ** 2) # keep constant magnitude acceleration
+        self.v_max = (self.total_time / 2.0) * self.acceleration # maximum velocity magnitude
+        self.desired_orientation = np.array([0, 1, 0, 0])
 
     def target_pose(self, time):
         """
@@ -187,10 +179,16 @@ class LinearTrajectory(Trajectory):
         7x' :obj:`numpy.ndarray`
             desired configuration in workspace coordinates of the end effector
         """
-        if time > self.total_time:
-            time = self.total_time
-        displacement = self.constant_velocity * time
-        pos = self.start_position + displacement * self.direction_vector
+        if time <= self.total_time / 2.0:
+            # TODO: calculate the position of the end effector at time t, 
+            # For the first half of the trajectory, maintain a constant acceleration
+            pos = self.start_position + (0.5) * self.acceleration * (time**2)
+        else:
+            # TODO: Calculate the position of the end effector at time t, 
+            # For the second half of the trajectory, maintain a constant accself.total_time/2eleration
+            # Hint: Calculate the remaining distance to the goal position. 
+            new_time = time - self.total_time / 2
+            pos = ((self.goal_position + self.start_position) / 2) + self.v_max * new_time  +  (0.5) * -self.acceleration * (new_time ** 2)
         return np.hstack((pos, self.desired_orientation))
 
     def target_velocity(self, time):
@@ -211,13 +209,18 @@ class LinearTrajectory(Trajectory):
         6x' :obj:`numpy.ndarray`
             desired body-frame velocity of the end effector
         """
-        if time > self.total_time:
-            return np.zeros(6)
-        linear_vel = self.constant_velocity * self.direction_vector
-        return np.hstack((linear_vel, np.zeros(3)))
+        if time <= self.total_time / 2.0:
+            # TODO: calculate velocity using the acceleration and time
+            # For the first half of the trajectory, we maintain a constant acceleration
 
-    def target_acceleration(self, time):
-        return np.zeros(6)
+            linear_vel = self.acceleration * time
+        else:
+            # TODO: start slowing the velocity down from the maximum one
+            # For the second half of the trajectory, maintain a constant deceleration
+            new_time = time - self.total_time / 2
+            linear_vel = self.v_max - self.acceleration * new_time
+
+        return np.hstack((linear_vel, np.zeros(3)))
 
 if __name__ == '__main__':
     """

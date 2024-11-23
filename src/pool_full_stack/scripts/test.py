@@ -51,10 +51,11 @@ def main():
     kin = sawyer_kinematics('right')
     limb = intera_interface.Limb("right")
                                                 #[x, y, z]
-    move_at_velocity(kin, limb, 0.125, np.array([0, -1.0, 0.0])) # Facing sawyer, goes to the right
+    move_at_velocity(kin, limb, 0.125, np.array([0, 1.0, 0.0])) # Facing sawyer, goes to the right
     tfBuffer = tf2_ros.Buffer()
     listener = tf2_ros.TransformListener(tfBuffer)
 
+    '''
     try:
         trans = tfBuffer.lookup_transform('base', 'right_hand', rospy.Time(0), rospy.Duration(10.0))
     except Exception as e:
@@ -73,6 +74,7 @@ def main():
 
     # controller = controllers.FeedforwardJointVelocityController(limb, kin)
     # controller.execute_path
+    '''
 
 if __name__ == "__main__":
     main()
