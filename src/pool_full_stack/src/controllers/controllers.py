@@ -297,9 +297,10 @@ class Controller:
     #     print("Close the plot window to continue")
     #     plt.show()
 
-    def plot_results(self, times, actual_positions,  actual_velocities,  target_positions, target_velocities):
+
+    def plot_results(self, times, actual_positions,  actual_velocities, target_positions, target_velocities):
         """
-        Plots results including x, y motion in 2D and 3D workspace.
+        Plots joint space results on the first page, and workspace x-y-z and 3D motion on subsequent pages.
         """
         # Convert inputs to numpy arrays for consistency
         times = np.array(times)
@@ -308,7 +309,33 @@ class Controller:
         target_positions = np.array(target_positions)
         target_velocities = np.array(target_velocities)
 
-        # Workspace positions and velocities
+        # Joint space plotting (Page 1)
+        if self.is_joinstpace_controller:
+            plt.figure(figsize=(12, 12))
+            joint_num = actual_positions.shape[1]
+            for joint in range(joint_num):
+                # Position plots
+                plt.subplot(joint_num, 2, 2 * joint + 1)
+                plt.plot(times, actual_positions[:, joint], label='Actual')
+                plt.plot(times, target_positions[:, joint], label='Target', linestyle='dashed')
+                plt.xlabel("Time (s)")
+                plt.ylabel(f"Joint {joint} Position")
+                plt.title(f"Joint {joint} Position vs. Time")
+                plt.legend()
+
+                # Velocity plots
+                plt.subplot(joint_num, 2, 2 * joint + 2)
+                plt.plot(times, actual_velocities[:, joint], label='Actual')
+                plt.plot(times, target_velocities[:, joint], label='Target', linestyle='dashed')
+                plt.xlabel("Time (s)")
+                plt.ylabel(f"Joint {joint} Velocity")
+                plt.title(f"Joint {joint} Velocity vs. Time")
+                plt.legend()
+
+            plt.tight_layout()
+            plt.show()
+
+        # Workspace plotting (Page 2 and Page 3)
         actual_workspace_positions = np.zeros((len(times), 3))
         actual_workspace_velocities = np.zeros((len(times), 3))
 
@@ -320,7 +347,6 @@ class Controller:
             actual_workspace_velocities[i, :] = \
                 self._kin.jacobian(joint_values=positions_dict)[:3].dot(actual_velocities[i])
 
-        # If joint space, compute target workspace positions/velocities
         if self.is_joinstpace_controller:
             target_workspace_positions = np.zeros((len(times), 3))
             target_workspace_velocities = np.zeros((len(times), 3))
@@ -335,30 +361,30 @@ class Controller:
             target_workspace_positions = target_positions
             target_workspace_velocities = target_velocities
 
-        # Plot workspace motion for x, y, z
+        # Workspace X, Y, Z motion (Page 2)
         plt.figure(figsize=(12, 8))
         workspace_axes = ['X', 'Y', 'Z']
         for i, axis in enumerate(workspace_axes):
             plt.subplot(3, 2, 2 * i + 1)
             plt.plot(times, actual_workspace_positions[:, i], label='Actual')
-            plt.plot(times, target_workspace_positions[:, i], label='Target')
+            plt.plot(times, target_workspace_positions[:, i], label='Target', linestyle='dashed')
             plt.xlabel("Time (s)")
             plt.ylabel(f"{axis} Position")
-            plt.legend()
             plt.title(f"{axis} Workspace Position vs. Time")
+            plt.legend()
 
             plt.subplot(3, 2, 2 * i + 2)
             plt.plot(times, actual_workspace_velocities[:, i], label='Actual')
-            plt.plot(times, target_workspace_velocities[:, i], label='Target')
+            plt.plot(times, target_workspace_velocities[:, i], label='Target', linestyle='dashed')
             plt.xlabel("Time (s)")
             plt.ylabel(f"{axis} Velocity")
-            plt.legend()
             plt.title(f"{axis} Workspace Velocity vs. Time")
+            plt.legend()
 
         plt.tight_layout()
         plt.show()
 
-        # Add x-y motion as a 2D plot
+        # 2D X-Y plot (Page 3)
         plt.figure()
         plt.plot(actual_workspace_positions[:, 0], actual_workspace_positions[:, 1], label='Actual')
         plt.plot(target_workspace_positions[:, 0], target_workspace_positions[:, 1], label='Target', linestyle='dashed')
@@ -366,11 +392,11 @@ class Controller:
         plt.ylabel("Y Position")
         plt.legend()
         plt.title("Workspace Motion: X vs. Y")
-        plt.axis('equal')  # To keep scale consistent
+        plt.axis('equal')
         plt.grid()
         plt.show()
 
-        # Add 3D plot for workspace motion
+        # 3D Plot for workspace motion (Page 3)
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
         ax.plot(
@@ -393,6 +419,7 @@ class Controller:
         plt.show()
 
         print("Close the plot window to continue")
+
 
         
 
