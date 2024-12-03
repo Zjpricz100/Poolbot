@@ -44,8 +44,10 @@ class ImageSubscriber:
             print(e)
 
     def process_image(self):
+        
         if self.img is None:
             return
+        
         
         # Get current positions of all trackbars
         hMin = cv2.getTrackbarPos('HMin', 'image')
@@ -62,7 +64,7 @@ class ImageSubscriber:
         mask = cv2.inRange(hsv, lower, upper)
         output = cv2.bitwise_and(self.img, self.img, mask=mask)
 
-
+      
         cv2.imshow('thresholded_img', output)
 
         # Capture key press
