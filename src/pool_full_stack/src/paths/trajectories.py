@@ -11,14 +11,14 @@ manipulator
 """
 
 class Trajectory:
-    def __init__(self):
+    def __init__(self, total_time):
         """
         Parameters
         ----------
         total_time : float
         	desired duration of the trajectory in seconds 
         """
-        pass
+        self.total_time = total_time
 
     def target_pose(self, time):
         """
@@ -112,7 +112,7 @@ class Trajectory:
         vel_boundaries = [[-2, 2],
                            [-2, 2],
                            [-2, 2]]
-        vel_paddinTrajectory.g = [[-0.1, 0.1],
+        vel_padding = [[-0.1, 0.1],
                         [-0.1, 0.1],
                         [-0.1, 0.1]]
         ax1.set_xlim3d([max(vel_boundaries[0][0], min(target_velocities[:, 0]) + vel_padding[0][0]), 
@@ -150,22 +150,15 @@ class Trajectory:
             print("Saved animation to %s.gif" % trajectory_name)
 
 class LinearTrajectory(Trajectory):
-    def __init__(self, start_position, goal_position, target_velocity, desired_orientation = np.array([0, 1, 0, 0])):
-        """
-        start_position is 1x3 np array
-        goal_position is 1x3 np array
-        target_velocity is velocity we want to travel at from start position to goal_position
-        """
+    def __init__(self, start_position, goal_position, total_time):
 
-        Trajectory.__init__(self)
+        Trajectory.__init__(self, total_time)
         self.start_position = start_position
         self.goal_position = goal_position
-        self.distance = np.linalg.norm(self.goal_position - self.start_position)
-
-        self.constant_velocity = target_velocity
-        self.total_time = self.distance / self.constant_velocity
-        self.direction_vector = (goal_position - start_position) / self.distance # normalized direction vector
-        self.desired_orientation = desired_orientation
+        self.distance = self.goal_position - self.start_position
+        self.acceleration = (self.distance * 4.0) / (self.total_time ** 2) # keep constant magnitude acceleration
+        self.v_max = (self.total_time / 2.0) * self.acceleration # maximum velocity magnitude
+        self.desired_orientation = np.array([0, 1, 0, 0])
 
     def target_pose(self, time):
         """
@@ -187,10 +180,20 @@ class LinearTrajectory(Trajectory):
         7x' :obj:`numpy.ndarray`
             desired configuration in workspace coordinates of the end effector
         """
-        if time > self.total_time:
-            time = self.total_time
-        displacement = self.constant_velocity * time
-        pos = self.start_position + displacement * self.direction_vector
+        if time <= self.total_time / 2.0:
+            # TODO: calculate the position of the end effector at time t, 
+            # For the first half of the trajectory, maintain a constant acceleration
+            delta = 0.5* self.acceleration*time**2
+            pos = self.start_position + delta
+        else:
+            # TODO: Calculate the position of the end effector at time t, 
+            # For the second half of the trajectory, maintain a constant acceleration
+            # Hint: Calculate the remaining distance to the goal position. 
+            delta = 0.5* self.acceleration*(self.total_time / 2.0)**2
+            pos = self.start_position + delta
+            delta = self.v_max*(time - self.total_time / 2.0) - 0.5 * self.acceleration *(time - self.total_time / 2.0)**2
+            pos += delta
+        #print(f"length of pos: {len(pos)}")
         return np.hstack((pos, self.desired_orientation))
 
     def target_velocity(self, time):
@@ -211,13 +214,99 @@ class LinearTrajectory(Trajectory):
         6x' :obj:`numpy.ndarray`
             desired body-frame velocity of the end effector
         """
-        if time > self.total_time:
-            return np.zeros(6)
-        linear_vel = self.constant_velocity * self.direction_vector
+        if time <= self.total_time / 2.0:
+            # TODO: calculate velocity using the acceleration and time
+            # For the first half of the trajectory, we maintain a constant acceleration
+
+            
+            linear_vel = self.acceleration*time
+        else:
+            # TODO: start slowing the velocity down from the maximum one
+            # For the second half of the trajectory, maintain a constant deceleration
+
+
+            linear_vel = self.v_max - 0.5 * (time - self.total_time / 2.0) * self.acceleration
         return np.hstack((linear_vel, np.zeros(3)))
 
-    def target_acceleration(self, time):
-        return np.zeros(6)
+class CircularTrajectory(Trajectory):
+    def __init__(self, center_position, radius, total_time):
+        Trajectory.__init__(self, total_time)
+        self.center_position = center_position
+        self.radius = radius
+        self.angular_acceleration = (2 * np.pi * 4.0) / (self.total_time ** 2) # keep constant magnitude acceleration
+        self.angular_v_max = (self.total_time / 2.0) * self.angular_acceleration # maximum velocity magnitude
+        self.desired_orientation = np.array([0, 1, 0, 0])
+
+    def target_pose(self, time):
+        """
+        Returns where the arm end effector should be at time t, in the form of a 
+        7D vector [x, y, z, qx, qy, qz, qw]. i.e. the first three entries are 
+        the desired end-effector position, and the last four entries are the 
+        desired end-effector orientation as a quaternion, all written in the 
+        world frame.
+
+        Hint: The end-effector pose with the gripper pointing down corresponds 
+        to the quaternion [0, 1, 0, 0]. 
+
+        Parameters
+        ----------
+        time : float        
+    
+        Returns
+        -------
+        7x' :obj:`numpy.ndarray`
+            desired configuration in workspace coordinates of the end effector
+        """
+        if time <= self.total_time / 2.0:
+            # TODO: calculate the ANGLE of the end effector at time t, 
+            # For the first half of the trajectory, maintain a constant acceleration
+        
+            theta = (self.angular_acceleration * time ** 2) / 2
+        else:
+            # TODO: Calculate the ANGLE of the end effector at time t, 
+            # For the second half of the trajectory, maintain a constant acceleration
+            # Hint: Calculate the remaining angle to the goal position. 
+            theta = 0.5 * self.angular_acceleration * (self.total_time / 2) ** 2
+            theta += self.angular_v_max*(time - self.total_time / 2.0) - 0.5 * self.angular_acceleration *(time - self.total_time / 2.0)**2
+        pos_d = np.ndarray.flatten(self.center_position + self.radius * np.array([np.cos(theta), np.sin(theta), 0]))
+        return np.hstack((pos_d, self.desired_orientation))
+
+
+    def target_velocity(self, time):
+        """
+        Returns the end effector's desired body-frame velocity at time t as a 6D
+        twist. Note that this needs to be a rigid-body velocity, i.e. a member 
+        of se(3) expressed as a 6D vector.
+
+        The function get_g_matrix from utils may be useful to perform some frame
+        transformations.
+
+        Parameters
+        ----------
+        time : float
+
+        Returns
+        -------
+        6x' :obj:`numpy.ndarray`
+            desired body-frame velocity of the end effector
+        """
+        if time <= self.total_time / 2.0:
+            # TODO: calculate ANGULAR position and velocity using the acceleration and time
+            # For the first half of the trajectory, we maintain a constant acceleration
+
+
+            theta = (self.angular_acceleration * time ** 2) / 2
+            theta_dot = self.angular_acceleration * time
+        else:
+            # TODO: start slowing the ANGULAR velocity down from the maximum one
+            # For the second half of the trajectory, maintain a constant deceleration
+            
+            
+            theta = 0.5 * self.angular_acceleration * (self.total_time / 2) ** 2
+            theta += self.angular_v_max*(time - self.total_time / 2.0) - 0.5 * self.angular_acceleration *(time - self.total_time / 2.0)**2
+            theta_dot = self.angular_v_max - self.angular_acceleration *(time - self.total_time / 2.0)
+        vel_d = np.ndarray.flatten(self.radius * theta_dot * np.array([-np.sin(theta), np.cos(theta), 0]))
+        return np.hstack((vel_d, np.zeros(3)))
 
 if __name__ == '__main__':
     """
@@ -226,6 +315,6 @@ if __name__ == '__main__':
     animate function to visualize the full trajectory in a 3D plot.
     """
 
-    path = LinearTrajectory(np.array([0, 0, 0]), np.array([.1, .1, .1]), 1)
+    path = LinearTrajectory(np.array([0, 0, 0]), np.array([.1, .1, .1]), 10)
     # path = CircularTrajectory(np.array([0.2, 0.4, 0.6]), .3, 10)
     path.display_trajectory()
