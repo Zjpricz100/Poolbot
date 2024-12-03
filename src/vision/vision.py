@@ -33,19 +33,28 @@ def main():
 
     # Initialize the ROS node
     rospy.init_node('hsv_color_thresholder', anonymous=True)
-    img_sub = ImageSubscriber()
+    img_sub = ImageSubscriber() #Stores hsv values of the balls. 
     # Main loop keeps updating the namedwindow
     while not rospy.is_shutdown():
-        img_sub.process_image()
+        img_sub.process_image() #Will print the hsv values when done.
 
     # Close all OpenCV windows after exiting
     cv2.destroyAllWindows()
 
-
     """
     Step 2 Create tf objects for cue ball
-    
+    """
+    #TODO Manually input the values after recording them in step 1
+    # into the process image function so that it has access to them.
 
+    #Create an object detector
+    detect_balls = ObjectDetector()
+    #Creates frames for each ball present on the board
+    detect_balls.process_images()
+
+
+    """
+    Step 3 Move robot into position to hit the cue ball into the target ball to get into hole. 
     """
 
 

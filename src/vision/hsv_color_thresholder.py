@@ -81,7 +81,7 @@ class ImageSubscriber:
                 'sMax': sMax,
                 'vMax': vMax
             }
-            #Set name and save values of the ball.
+            #Set name to be num balls and save values of the ball.
             name = str(self.num_balls)
             self.save_hsv_values(name, hsv_values)
             
@@ -89,7 +89,11 @@ class ImageSubscriber:
         
         # Exit when 'q' is pressed
         if key == ord('q'):
+            #Print all 16 values. 1 cue ball, balls 1-15
+            for i in range(16):
+                print(i + ": " + self.hsv_values[str(i)]) #print the recorded hsv values.
             rospy.signal_shutdown('User requested shutdown.')
+            
 
 def main():
     """
@@ -107,7 +111,7 @@ def main():
     """
     # Initialize the ROS node
     rospy.init_node('hsv_color_thresholder', anonymous=True)
-    img_sub = ImageSubscriber()
+    img_sub = ImageSubscriber() 
     # Main loop keeps updating the namedwindow
     while not rospy.is_shutdown():
         img_sub.process_image()

@@ -23,10 +23,8 @@ class ObjectDetector:
         self.bridge = CvBridge()
 
         self.cv_color_image = None
-        self.cv_depth_image = None
 
         self.color_image_sub = rospy.Subscriber("/camera/color/image_raw", Image, self.color_image_callback)
-        self.depth_image_sub = rospy.Subscriber("/camera/aligned_depth_to_color/image_raw", Image, self.depth_image_callback)
 
         self.fx = None
         self.fy = None
@@ -49,29 +47,12 @@ class ObjectDetector:
         self.cx = msg.K[2]
         self.cy = msg.K[5]
 
-    def pixel_to_point(self, u, v, depth):
-        # TODO: Use the camera intrinsics to convert pixel coordinates to real-world coordinates
-        X = (1 / self.fx) * ((u - self.cx) * depth)
-        Y = (1/ self.fy) * ((v - self.cy) * depth)
-        Z = depth
-        return X, Y, Z
 
     def color_image_callback(self, msg):
         try:
             # Convert the ROS Image message to an OpenCV image (BGR8 format)
             self.cv_color_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-
-            # If we have both color and depth images, process them
-            if self.cv_depth_image is not None:
-                self.process_images()
-
-        except Exception as e:
-            print("Error:", e)
-
-    def depth_image_callback(self, msg):
-        try:
-            # Convert the ROS Image message to an OpenCV image (16UC1 format)
-            self.cv_depth_image = self.bridge.imgmsg_to_cv2(msg, "16UC1")
+            self.process_images()
 
         except Exception as e:
             print("Error:", e)
@@ -79,68 +60,61 @@ class ObjectDetector:
     def process_images(self):
         # Convert the color image to HSV color space
         hsv = cv2.cvtColor(self.cv_color_image, cv2.COLOR_BGR2HSV)
-        # TODO: Define range for cup color in HSV
-        # Run `python hsv_color_thresholder.py` and tune the bounds so you only see your cup
-        # update lower_hsv and upper_hsv directly
 
-        lower_hsv = np.array([56, 37, 98]) # TODO: Define lower HSV values for cup color
-        upper_hsv = np.array([85, 255, 255]) # TODO: Define upper HSV values for cup color
+        # Define color ranges for different balls
+        #TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
+        ball_numbers = {
+            # TODO manually plug in values from step 1 in vision.py
+            '0' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
+            '1' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
+            '2' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
+            '3' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
+            '4' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
+            '5' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
+            '6' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
+            '7' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
+            '8' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
+            '9' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
+            '10' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
+            '11' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
+            '12' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
+            '13' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
+            '14' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
+            '15' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
 
-        # TODO: Threshold the image to get only cup colors
-        # HINT: Lookup cv2.inRange()
-        mask = cv2.inRange(hsv, lower_hsv, upper_hsv)
-        res = cv2.bitwise_and(self.cv_color_image, self.cv_color_image, mask=mask)
+            #TODO Remove below values
+            'green': (np.array([56, 37, 98]), np.array([85, 255, 255])),
+            'red': (np.array([0, 100, 100]), np.array([10, 255, 255])),
+            'blue': (np.array([100, 100, 100]), np.array([140, 255, 255]))
+        }
 
-        # TODO: Get the coordinates of the cup points on the mask
-        # HINT: Lookup np.nonzero()
-        values = np.nonzero(res)
-        y_coords, x_coords = values[0], values[1]
+        # Process each ball color
+        for color_name, (lower_hsv, upper_hsv) in ball_numbers.items():
+            # Create mask for this color
+            mask = cv2.inRange(hsv, lower_hsv, upper_hsv)
+            # Find contours
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+            # Process each contour (ball) of this color
+            for contour in contours:
+                if cv2.contourArea(contour) > 100:
+                    # Calculate contour center
+                    M = cv2.moments(contour)
+                    if M["m00"] != 0:
+                        center_x = int(M["m10"] / M["m00"])
+                        center_y = int(M["m01"] / M["m00"])
 
-        # If there are no detected points, exit
-        if len(x_coords) == 0 or len(y_coords) == 0:
-            print("No points detected. Is your color filter wrong?")
-            return
-
-        # Calculate the center of the detected region by 
-        center_x = int(np.mean(x_coords))
-        center_y = int(np.mean(y_coords))
-
-        # Fetch the depth value at the center
-        depth = self.cv_depth_image[center_y, center_x]
-
-        if self.fx and self.fy and self.cx and self.cy:
-            camera_x, camera_y, camera_z = self.pixel_to_point(center_x, center_y, depth)
-            camera_link_x, camera_link_y, camera_link_z = camera_z, -camera_x, -camera_y
-            # Convert from mm to m
-            camera_link_x /= 1000
-            camera_link_y /= 1000
-            camera_link_z /= 1000
-
-            # Convert the (X, Y, Z) coordinates from camera frame to odom frame
-            try:
-                self.tf_listener.waitForTransform("/odom", "/camera_link", rospy.Time(), rospy.Duration(10.0))
-                point_odom = self.tf_listener.transformPoint("/odom", PointStamped(header=Header(stamp=rospy.Time(), frame_id="/camera_link"), point=Point(camera_link_x, camera_link_y, camera_link_z)))
-                X_odom, Y_odom, Z_odom = point_odom.point.x, point_odom.point.y, point_odom.point.z
-                print("Real-world coordinates in odom frame: (X, Y, Z) = ({:.2f}m, {:.2f}m, {:.2f}m)".format(X_odom, Y_odom, Z_odom))
-
-                if X_odom < 0.001 and X_odom > -0.001:
-                    print("Erroneous goal point, not publishing - Is the cup too close to the camera?")
-                else:
-                    print("Publishing goal point: ", X_odom, Y_odom, Z_odom)
-                    # Publish the transformed point
-                    self.point_pub.publish(Point(X_odom, Y_odom, Z_odom))
-
-                    # Overlay cup points on color image for visualization
-                    cup_img = self.cv_color_image.copy()
-                    cup_img[y_coords, x_coords] = [0, 0, 255]  # Highlight cup points in red
-                    cv2.circle(cup_img, (center_x, center_y), 5, [0, 255, 0], -1)  # Draw green circle at center
-                    
-                    # Convert to ROS Image message and publish
-                    ros_image = self.bridge.cv2_to_imgmsg(cup_img, "bgr8")
-                    self.image_pub.publish(ros_image)
-            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
-                print("TF Error: " + e)
-                return
+                        # Broadcast tf frame with 2D pixel coordinates
+                        ball_tf_broadcaster = tf.TransformBroadcaster()
+                        ball_tf_broadcaster.sendTransform(
+                            # TODO TODO TODO TODO TODO
+                            #TODO Get depth of the board and replace pix coord z w/ that instead of 0
+                            (center_x, center_y, 0),  # Use pixel coordinates
+                            tf.transformations.quaternion_from_euler(0, 0, 0),
+                            rospy.Time.now(),
+                            f"{color_name}_ball_2d",
+                            "camera_frame"
+                        )
 
 if __name__ == '__main__':
     ObjectDetector()
