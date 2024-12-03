@@ -10,6 +10,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 # Lab imports
 from utils.utils import *
@@ -296,9 +297,9 @@ class Controller:
     #     print("Close the plot window to continue")
     #     plt.show()
 
-    def plot_results(self, times, actual_positions, actual_velocities, target_positions, target_velocities):
+    def plot_results(self, times, actual_positions,  actual_velocities,  target_positions, target_velocities):
         """
-        Plots results including x and y motion in workspace.
+        Plots results including x, y motion in 2D and 3D workspace.
         """
         # Convert inputs to numpy arrays for consistency
         times = np.array(times)
@@ -367,6 +368,28 @@ class Controller:
         plt.title("Workspace Motion: X vs. Y")
         plt.axis('equal')  # To keep scale consistent
         plt.grid()
+        plt.show()
+
+        # Add 3D plot for workspace motion
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.plot(
+            actual_workspace_positions[:, 0],
+            actual_workspace_positions[:, 1],
+            actual_workspace_positions[:, 2],
+            label='Actual'
+        )
+        ax.plot(
+            target_workspace_positions[:, 0],
+            target_workspace_positions[:, 1],
+            target_workspace_positions[:, 2],
+            label='Target', linestyle='dashed'
+        )
+        ax.set_xlabel("X Position")
+        ax.set_ylabel("Y Position")
+        ax.set_zlabel("Z Position")
+        ax.set_title("3D Workspace Motion")
+        ax.legend()
         plt.show()
 
         print("Close the plot window to continue")
