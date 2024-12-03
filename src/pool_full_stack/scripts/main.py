@@ -171,8 +171,8 @@ def get_controller(controller_name, limb, kin):
     if controller_name == 'open_loop':
         controller = FeedforwardJointVelocityController(limb, kin)
     elif controller_name == 'pid':
-        Kp = 0.5 * np.array([0.4, 15, 1.7, 1.5, 2, 2, 3])
-        Kd = 0.05 * np.array([2, 2, 2, 0.5, 0.8, 0.8, 0.8])
+        Kp = 0.5 * np.array([0.4, 5, 1.7, 1.5, 2, 2, 3])
+        Kd = 0.05 * np.array([2, 0.8, 2, 0.5, 0.8, 0.8, 0.8])
         Ki = 0.01 * np.array([1.4, 1.5, 1.4, 1, 0.6, 0.6, 0.6])
         Kw = np.array([0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9])
         controller = PIDJointVelocityController(limb, kin, Kp, Ki, Kd, Kw)
@@ -232,7 +232,7 @@ def main():
     planner = PathPlanner('right_arm')
 
     curr_pos = get_current_position_and_orientation(limb)
-    curr_pos.pose.position.z -= 0.6
+    curr_pos.pose.position.z -= 0.5
     plan = planner.plan_to_pose(curr_pos)
 
     if args.controller_name != "moveit":
@@ -244,22 +244,22 @@ def main():
         kin, 
         np.array([1, 0, 0]),
         0.1, # meters
-        0.3,
+        0.5,
         ik_solver, 
         args)
     
     exec_trajectory(robot_trajectory, pub, disp_traj, args, limb, kin, planner)
 
-    # robot_trajectory = get_trajectory(
-    #     limb, 
-    #     kin, 
-    #     np.array([-1, 0, 0]),
-    #     0.1, # meters
-    #     0.3,
-    #     ik_solver, 
-    #     args)
+    robot_trajectory = get_trajectory(
+        limb, 
+        kin, 
+        np.array([-1, 0, 0]),
+        0.1, # meters
+        0.5,
+        ik_solver, 
+        args)
 
-    #exec_trajectory(robot_trajectory, pub, disp_traj, args, limb, kin, planner)
+    exec_trajectory(robot_trajectory, pub, disp_traj, args, limb, kin, planner)
 
 if __name__ == "__main__":
     main()
