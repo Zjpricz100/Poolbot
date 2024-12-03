@@ -76,7 +76,7 @@ def lookup_tag(tag_number):
     print(tag_pos)
     return np.array(tag_pos)
 
-def get_trajectory(limb, kin, ik_solver, tag_pos, args):
+def get_trajectory(limb, kin, ik_solver, args):
     """
     Returns an appropriate robot trajectory for the specified task.  You should 
     be implementing the path functions in paths.py and call them here
@@ -104,10 +104,11 @@ def get_trajectory(limb, kin, ik_solver, tag_pos, args):
 
     current_position = np.array([getattr(trans.transform.translation, dim) for dim in ('x', 'y', 'z')])
     print("Current Position:", current_position)
+    tag_pos = current_position
 
     if task == 'line':
         target_pos = tag_pos[0]
-        target_pos[2] += 0.4 #linear path moves to a Z position above AR Tag.
+        target_pos[0] += 0.4 #linear path moves to a Z position above AR Tag.
         print("TARGET POSITION:", target_pos)
         trajectory = LinearTrajectory(start_position=current_position, goal_position=target_pos, total_time=9)
     elif task == 'circle':
@@ -193,15 +194,15 @@ def main():
     kin = sawyer_kinematics("right")
 
     # Lookup the AR tag position.
-    tag_pos = [lookup_tag(marker) for marker in args.ar_marker]
-    print(tag_pos)
+    # tag_pos = [lookup_tag(marker) for marker in args.ar_marker]
+    # print(tag_pos)
 
     # Get an appropriate RobotTrajectory for the task (circular, linear, or square)
     # If the controller is a workspace controller, this should return a trajectory where the
     # positions and velocities are workspace positions and velocities.  If the controller
     # is a jointspace or torque controller, it should return a trajectory where the positions
     # and velocities are the positions and velocities of each joint.
-    robot_trajectory = get_trajectory(limb, kin, ik_solver, tag_pos, args)
+    robot_trajectory = get_trajectory(limb, kin, ik_solver, args)
 
     # This is a wrapper around MoveIt! for you to use.  We use MoveIt! to go to the start position
     # of the trajectory
