@@ -298,7 +298,15 @@ class Controller:
     #     plt.show()
 
 
-    def plot_results(self, times, actual_positions,  actual_velocities, target_positions, target_velocities):
+
+    def plot_results(
+        self,
+        times,
+        actual_positions, 
+        actual_velocities, 
+        target_positions, 
+        target_velocities
+        ):
         """
         Plots joint space results on the first page, and workspace x-y-z and 3D motion on subsequent pages.
         """
@@ -419,6 +427,7 @@ class Controller:
         plt.show()
 
         print("Close the plot window to continue")
+
 
 
         
