@@ -26,7 +26,7 @@ phMin = psMin = pvMin = phMax = psMax = pvMax = 0
 class ImageSubscriber:
     def __init__(self):
         self.bridge = CvBridge()
-        self.image_sub = rospy.Subscriber("/camera/color/image_raw", Image, self.image_callback)
+        self.image_sub = rospy.Subscriber("/io/internal_camera/right_hand_camera/image_raw", Image, self.image_callback)
         self.img = None
         self.hsv_values = {} #Ball # (Doesn't match with actual ball # label): HSV_Values 
         self.num_balls = 0 #Number of balls
@@ -44,9 +44,10 @@ class ImageSubscriber:
             print(e)
 
     def process_image(self):
-        
+        print("pro")
         if self.img is None:
             return
+        print("cess")
         
         
         # Get current positions of all trackbars
@@ -93,7 +94,7 @@ class ImageSubscriber:
         if key == ord('q'):
             #Print all 16 values. 1 cue ball, balls 1-15
             for i in range(16):
-                print(i + ": " + self.hsv_values[str(i)]) #print the recorded hsv values.
+                print(str(i) + ": " + self.hsv_values[str(i)]) #print the recorded hsv values.
             rospy.signal_shutdown('User requested shutdown.')
             
 
