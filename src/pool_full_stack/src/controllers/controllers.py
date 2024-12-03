@@ -297,7 +297,7 @@ class Controller:
         plt.show()
         
 
-    def execute_path(self, path, rate=200, timeout=None, log=False):
+    def execute_path(self, path, rate=50, timeout=None, log=False):
         """
         takes in a path and moves the sawyer in order to follow the path.  
 
@@ -344,6 +344,7 @@ class Controller:
 
             # If the controller has timed out, stop moving and return false
             if timeout is not None and t >= timeout:
+                print("TEST")
                 # Set velocities to zero
                 self.stop_moving()
                 return False
@@ -374,6 +375,7 @@ class Controller:
             r.sleep()
 
             if current_index >= max_index:
+                print(current_index)
                 self.stop_moving()
                 break
 
@@ -424,7 +426,7 @@ class PIDJointVelocityController(Controller):
         self.Kp = np.diag(Kp)
         self.Ki = np.diag(Ki)
         self.Kd = np.diag(Kd)
-        self.Kw = 0
+        self.Kw = 0.1
         
         self.integ_error = np.zeros(7)
         

@@ -103,10 +103,10 @@ def get_trajectory(limb, kin, direction, distance, ik_solver, args):
     trajectory = LinearTrajectory(
         start_position = current_position,
         goal_position = target_position,
-        total_time=2.0
+        target_velocity = 0.4
     )
     path = MotionPath(limb, kin, trajectory)
-    return path.to_robot_trajectory(args.num_way, True)
+    return path.to_robot_trajectory(args.num_way, jointspace=True, extra_points=0)
 
 def get_controller(controller_name, limb, kin):
     """
@@ -123,9 +123,9 @@ def get_controller(controller_name, limb, kin):
     if controller_name == 'open_loop':
         controller = FeedforwardJointVelocityController(limb, kin)
     elif controller_name == 'pid':
-        Kp = 0.5 * np.array([0.4, 2, 1.7, 1.5, 2, 2, 3])
-        Kd = 0.05 * np.array([2, 1, 2, 0.5, 0.8, 0.8, 0.8])
-        Ki = 0.01 * np.array([1.4, 1.4, 1.4, 1, 0.6, 0.6, 0.6])
+        Kp = 0.5 * np.array([0.4, 5, 1.7, 1.5, 2, 2, 3])
+        Kd = 0.05 * np.array([2, 1.5, 2, 0.5, 0.8, 0.8, 0.8])
+        Ki = 0.01 * np.array([1.4, 1.5, 1.4, 1, 0.6, 0.6, 0.6])
         Kw = np.array([0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9])
         controller = PIDJointVelocityController(limb, kin, Kp, Ki, Kd, Kw)
     else:
@@ -154,7 +154,7 @@ def main():
         limb, 
         kin, 
         np.array([-1, 0, 0]),
-        2, 
+        0.1, # meters
         ik_solver, 
         args)
 
