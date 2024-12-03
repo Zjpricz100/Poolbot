@@ -396,7 +396,7 @@ class Controller:
 
         
 
-    def execute_path(self, path, rate=50, timeout=None, log=False):
+    def execute_path(self, path, rate=200, timeout=None, log=False):
         """
         takes in a path and moves the sawyer in order to follow the path.  
 
