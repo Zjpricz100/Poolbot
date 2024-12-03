@@ -151,7 +151,8 @@ def get_trajectory(limb, kin, direction, distance, target_vel, ik_solver, args):
     trajectory = LinearTrajectory(
         start_position = current_position,
         goal_position = target_position,
-        target_velocity = target_vel
+        target_velocity = target_vel,
+        desired_orientation = [(2 ** 0.5)/2, 0, 0, (2 ** 0.5)/2]
     )
     path = MotionPath(limb, kin, trajectory)
     return path.to_robot_trajectory(args.num_way, jointspace=True, extra_points=0)
@@ -171,7 +172,7 @@ def get_controller(controller_name, limb, kin):
     if controller_name == 'open_loop':
         controller = FeedforwardJointVelocityController(limb, kin)
     elif controller_name == 'pid':
-        Kp = 0.5 * np.array([0.4, 5, 1.7, 1.5, 2, 2, 3])
+        Kp = 0.5 * np.array([0.4, 4, 1.7, 0.5, 2, 2, 3])
         Kd = 0.05 * np.array([2, 0.8, 2, 0.5, 0.8, 0.8, 0.8])
         Ki = 0.01 * np.array([1.4, 1.5, 1.4, 1, 0.6, 0.6, 0.6])
         Kw = np.array([0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9])
@@ -232,7 +233,7 @@ def main():
     planner = PathPlanner('right_arm')
 
     curr_pos = get_current_position_and_orientation(limb)
-    curr_pos.pose.position.z -= 0.5
+    curr_pos.pose.position.z -= 0.65
     plan = planner.plan_to_pose(curr_pos)
 
     if args.controller_name != "moveit":
