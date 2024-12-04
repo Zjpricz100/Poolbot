@@ -524,7 +524,67 @@ class Controller:
             )
         return True
 
+gravity_scale = 2
+class PIDJointTorqueController(Controller):
+    def __init__(self, limb, kin, Kp, Ki, Kd, Kw, rate=200):
+        Controller.__init__(self, limb, kin)
+        self.Kp = np.diag(Kp)
+        self.Ki = np.diag(Ki)
+        self.Kd = np.diag(Kd)
+        self.Kw = 0.1
+        self.integ_error = np.zeros(NUM_JOINTS)
+        self.is_joinstpace_controller = True
+        self._rate = rate
 
+    def step_control(self, target_position, target_velocity, target_acceleration):
+        current_position = get_joint_positions(self._limb)  # NumPy array
+        current_velocity = get_joint_velocities(self._limb)  # NumPy array
+
+        # Compute errors
+        e = target_position - current_position
+        e_dot = target_velocity - current_velocity
+        self.integ_error = self.Kw * self.integ_error + e
+
+        # PID terms
+        P_out = self.Kp @ e
+        I_out = self.Ki @ self.integ_error
+        D_out = self.Kd @ e_dot
+
+        # Convert current_position to a dictionary for gravity compensation
+        current_position_dict = joint_array_to_dict(current_position, self._limb)
+
+        # Gravity compensation
+        gravity_torque = -self._kin.gravity(current_position_dict) * gravity_scale
+        print(gravity_torque)
+
+        # Total control torque
+        controller_velocity = target_velocity + P_out + I_out + D_out
+        controller_torque = P_out + I_out + D_out + gravity_torque.reshape((7,))
+        print("P_out shape:", P_out.shape)
+        print("I_out shape:", I_out.shape)
+        print("D_out shape:", D_out.shape)
+        print("gravity_torque shape:", gravity_torque.shape)
+
+        # Limit torques for safety
+        max_torque = np.array([20.0] * NUM_JOINTS)  # Adjust limits as needed
+        controller_torque = np.clip(controller_torque, -max_torque, max_torque)
+
+        # **Convert torques to a list of Python floats**
+        controller_torque_list = [float(torque) for torque in controller_torque]
+
+        # **Check for NaN or None values**
+        if any(np.isnan(controller_torque)):
+            rospy.logerr("Controller torque contains NaN values.")
+            controller_torque_list = np.nan_to_num(controller_torque_list).tolist()  # Replace NaNs with zero
+
+        # **Create the torque dictionary without changing joint_array_to_dict**
+        torque_dict = dict(zip(self._limb.joint_names(), controller_torque_list))
+
+        self._limb.set_joint_torques(torque_dict)
+        self._limb.set_joint_velocities(joint_array_to_dict(controller_velocity, self._limb))
+        actual_torques = self._limb.joint_efforts()
+        actual_torque_array = np.array([actual_torques[joint] for joint in self._limb.joint_names()])
+        print("Actual Joint Torques:", actual_torque_array)
 class FeedforwardJointVelocityController(Controller):
     def step_control(self, target_position, target_velocity, target_acceleration):
         """
