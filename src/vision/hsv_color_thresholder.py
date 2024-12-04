@@ -26,7 +26,7 @@ phMin = psMin = pvMin = phMax = psMax = pvMax = 0
 class ImageSubscriber:
     def __init__(self):
         self.bridge = CvBridge()
-        self.image_sub = rospy.Subscriber("/io/internal_camera/right_hand_camera/image_raw", Image, self.image_callback)
+        self.image_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.image_callback)
         self.img = None
         self.hsv_values = {} #Ball # (Doesn't match with actual ball # label): HSV_Values 
         self.num_balls = 0 #Number of balls
@@ -34,6 +34,7 @@ class ImageSubscriber:
     def save_hsv_values(self, name, hsv_values):
         # Get current trackbar positions
         self.hsv_values[name] = hsv_values
+        self.num_balls+=1
 
 
     def image_callback(self, msg):
@@ -44,10 +45,8 @@ class ImageSubscriber:
             print(e)
 
     def process_image(self):
-        print("pro")
         if self.img is None:
             return
-        print("cess")
         
         
         # Get current positions of all trackbars
@@ -88,13 +87,14 @@ class ImageSubscriber:
             name = str(self.num_balls)
             self.save_hsv_values(name, hsv_values)
             
-            print(f"HSV values saved. Total saved: {len(self.saved_hsv_values)}")
+            print(f"HSV values saved. Total saved: {self.num_balls}")
         
         # Exit when 'q' is pressed
         if key == ord('q'):
             #Print all 16 values. 1 cue ball, balls 1-15
-            for i in range(16):
-                print(str(i) + ": " + self.hsv_values[str(i)]) #print the recorded hsv values.
+            if self.num_balls > 0:
+                for i in range(self.num_balls):
+                    print(str(i) + ": " + str(self.hsv_values[str(i)])) #print the recorded hsv values.
             rospy.signal_shutdown('User requested shutdown.')
             
 

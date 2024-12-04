@@ -29,7 +29,6 @@ def main():
 
     """
     Step 1. Scan above the table record thresholding values for each ball present.
-    """
 
     # Initialize the ROS node
     rospy.init_node('hsv_color_thresholder', anonymous=True)
@@ -40,6 +39,7 @@ def main():
 
     # Close all OpenCV windows after exiting
     cv2.destroyAllWindows()
+    """
 
     """
     Step 2 Create tf objects for cue ball

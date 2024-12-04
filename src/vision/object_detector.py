@@ -24,14 +24,14 @@ class ObjectDetector:
 
         self.cv_color_image = None
 
-        self.color_image_sub = rospy.Subscriber("/camera/color/image_raw", Image, self.color_image_callback)
+        self.color_image_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.color_image_callback)
 
         self.fx = None
         self.fy = None
         self.cx = None
         self.cy = None
 
-        self.camera_info_sub = rospy.Subscriber("/camera/color/camera_info", CameraInfo, self.camera_info_callback)
+        self.camera_info_sub = rospy.Subscriber("/usb_cam/camera_info", CameraInfo, self.camera_info_callback)
 
         self.tf_listener = tf.TransformListener()  # Create a TransformListener object
 
@@ -57,64 +57,96 @@ class ObjectDetector:
         except Exception as e:
             print("Error:", e)
 
+    def get_table_height(self):
+        """
+        Get the height of the table using the AR tag transform.
+        """
+        # Create a tf2 buffer and listener
+        tfBuffer = tf.Buffer()
+        
+        try:
+            # Lookup the transform for the AR tag
+            transform = tfBuffer.lookup_transform("base", "ar_marker_0", rospy.Time(0), rospy.Duration(10.0))
+            
+            # Extract the z-coordinate (height)
+            table_height = transform.transform.translation.z
+            rospy.loginfo(f"Table height (z): {table_height} meters")
+            return table_height
+        
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+            rospy.logerr(f"Failed to get table height: {e}")
+            return None
+
+
+
     def process_images(self):
         # Convert the color image to HSV color space
         hsv = cv2.cvtColor(self.cv_color_image, cv2.COLOR_BGR2HSV)
 
         # Define color ranges for different balls
-        #TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
         ball_numbers = {
-            # TODO manually plug in values from step 1 in vision.py
-            '0' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
-            '1' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
-            '2' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
-            '3' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
-            '4' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
-            '5' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
-            '6' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
-            '7' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
-            '8' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
-            '9' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
-            '10' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
-            '11' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
-            '12' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
-            '13' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
-            '14' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
-            '15' : (np.array([56, 37, 98]), np.array([85, 255, 255])),
-
-            #TODO Remove below values
-            'green': (np.array([56, 37, 98]), np.array([85, 255, 255])),
-            'red': (np.array([0, 100, 100]), np.array([10, 255, 255])),
-            'blue': (np.array([100, 100, 100]), np.array([140, 255, 255]))
+            'cue' : (np.array([0, 0, 110]), np.array([80, 102, 255])),
+            'yellow' : (np.array([26, 237, 122]), np.array([63, 255, 255])),
+            'blue' : (np.array([78, 103, 28]), np.array([119, 216, 121])),
+            'red' : (np.array([0, 220, 113]), np.array([9, 248, 231])),
+            'purple' : (np.array([115, 0, 0]), np.array([175, 222, 99])),
+            'orange' : (np.array([0, 246, 100]), np.array([25, 255, 255])),
+            'maroon' : (np.array([4, 120, 31]), np.array([13, 237, 180])),
+            'black' : (np.array([0, 0, 30]), np.array([179, 255, 54])),
+            'green' : (np.array([31, 102, 0]), np.array([105, 255, 123]))
         }
+
+      # Create a copy of the original image for drawing
+        display_image = self.cv_color_image.copy()
+
+        #z = self.get_table_height()
 
         # Process each ball color
         for color_name, (lower_hsv, upper_hsv) in ball_numbers.items():
             # Create mask for this color
             mask = cv2.inRange(hsv, lower_hsv, upper_hsv)
+            
             # Find contours
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             
-            # Process each contour (ball) of this color
+            # Process each contour
             for contour in contours:
-                if cv2.contourArea(contour) > 100:
-                    # Calculate contour center
-                    M = cv2.moments(contour)
-                    if M["m00"] != 0:
-                        center_x = int(M["m10"] / M["m00"])
-                        center_y = int(M["m01"] / M["m00"])
+                # Filter by area to remove very small or very large objects
+                if 100 < cv2.contourArea(contour) < 5000:
+                    # Calculate contour perimeter and area
+                    perimeter = cv2.arcLength(contour, True)
+                    area = cv2.contourArea(contour)
+                    
+                    # Compute circularity
+                    if perimeter > 0:
+                        circularity = 4 * np.pi * area / (perimeter ** 2)
+                        
+                        # Check if object is sufficiently circular (close to 1)
+                        if circularity > 0.4:
+                            # Additional shape verification using minimum enclosing circle
+                            (x, y), radius = cv2.minEnclosingCircle(contour)
+                            
+                            # Verify the object is roughly circular
+                            if radius > 10:  # Minimum ball size
+                                # Existing ball detection and TF broadcasting logic
+                                center_x = int(x)
+                                center_y = int(y)
+                                
+                                # Draw and label circular objects
+                                cv2.drawContours(display_image, [contour], 0, (0, 255, 0), 2)
+                                cv2.putText(
+                                    display_image, 
+                                    f"{color_name} Ball (Circularity: {circularity:.2f})", 
+                                    (center_x, center_y), 
+                                    cv2.FONT_HERSHEY_SIMPLEX, 
+                                    0.5, 
+                                    (255, 0, 0), 
+                                    2
+                                )
 
-                        # Broadcast tf frame with 2D pixel coordinates
-                        ball_tf_broadcaster = tf.TransformBroadcaster()
-                        ball_tf_broadcaster.sendTransform(
-                            # TODO TODO TODO TODO TODO
-                            #TODO Get depth of the board and replace pix coord z w/ that instead of 0
-                            (center_x, center_y, 0),  # Use pixel coordinates
-                            tf.transformations.quaternion_from_euler(0, 0, 0),
-                            rospy.Time.now(),
-                            f"{color_name}_ball_2d",
-                            "camera_frame"
-                        )
+        # Display the image with detected balls
+        cv2.imshow('Detected Balls', display_image)
+        cv2.waitKey(1)
 
 if __name__ == '__main__':
     ObjectDetector()
