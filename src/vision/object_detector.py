@@ -122,12 +122,12 @@ class ObjectDetector:
                         circularity = 4 * np.pi * area / (perimeter ** 2)
                         
                         # Check if object is sufficiently circular (close to 1)
-                        if circularity > 0.4:
+                        if circularity > 0.6:
                             # Additional shape verification using minimum enclosing circle
                             (x, y), radius = cv2.minEnclosingCircle(contour)
                             
                             # Verify the object is roughly circular
-                            if radius > 10:  # Minimum ball size
+                            if radius > 0.5:  # Minimum ball size
                                 # Existing ball detection and TF broadcasting logic
                                 center_x = int(x)
                                 center_y = int(y)
