@@ -14,7 +14,7 @@ from geometry_msgs.msg import PoseStamped
 from intera_core_msgs.srv import SolvePositionIK, SolvePositionIKRequest
 
 from utils.utils import *
-
+# test
 try:
     import rospy
     from moveit_msgs.msg import RobotTrajectory
@@ -147,9 +147,9 @@ class MotionPath:
         point = JointTrajectoryPoint()
         delta_t = .01
         if jointspace:
-            theta_t_2 = self.kin.inverse_kinematics(self.trajectory.target_pose(max(t-2*delta_t, 0))[0:3], self.trajectory.target_pose(max(t-2*delta_t, 0))[3:])            
-            theta_t_1 = self.kin.inverse_kinematics(self.trajectory.target_pose(max(t-delta_t, 0))[0:3], self.trajectory.target_pose(max(t-delta_t, 0))[3:])
-            theta_t   = self.kin.inverse_kinematics(self.trajectory.target_pose(t)[0:3], self.trajectory.target_pose(t)[3:])
+            theta_t_2 = self.kin.inverse_kinematics(self.trajectory.target_pose(max(t-2*delta_t, 0))[0:3], list(self.trajectory.target_pose(max(t-2*delta_t, 0))[3:]))            
+            theta_t_1 = self.kin.inverse_kinematics(self.trajectory.target_pose(max(t-delta_t, 0))[0:3], list(self.trajectory.target_pose(max(t-delta_t, 0))[3:]))
+            theta_t   = self.kin.inverse_kinematics(self.trajectory.target_pose(t)[0:3], list(self.trajectory.target_pose(t)[3:]))
             
             # we said you shouldn't simply take a finite difference when creating
             # the path, why do you think we're doing that here?

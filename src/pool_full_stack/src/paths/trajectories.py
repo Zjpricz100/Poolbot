@@ -156,17 +156,15 @@ class LinearTrajectory(Trajectory):
         goal_position is 1x3 np array
         target_velocity is velocity we want to travel at from start position to goal_position
         """
-
         Trajectory.__init__(self)
         self.start_position = start_position
         self.goal_position = goal_position
         self.distance = np.linalg.norm(self.goal_position - self.start_position)
-
         self.constant_velocity = target_velocity
         self.total_time = self.distance / self.constant_velocity
+        print(self.total_time)
         self.direction_vector = (goal_position - start_position) / self.distance # normalized direction vector
         self.desired_orientation = desired_orientation
-
     def target_pose(self, time):
         """
         Returns where the arm end effector should be at time t, in the form of a 
@@ -174,10 +172,8 @@ class LinearTrajectory(Trajectory):
         the desired end-effector position, and the last four entries are the 
         desired end-effector orientation as a quaternion, all written in the 
         world frame.
-
         Hint: The end-effector pose with the gripper pointing down corresponds 
         to the quaternion [0, 1, 0, 0]. 
-
         Parameters
         ----------
         time : float        
@@ -187,35 +183,30 @@ class LinearTrajectory(Trajectory):
         7x' :obj:`numpy.ndarray`
             desired configuration in workspace coordinates of the end effector
         """
-        if time > self.total_time:
+        if time >= self.total_time:
             time = self.total_time
         displacement = self.constant_velocity * time
         pos = self.start_position + displacement * self.direction_vector
         return np.hstack((pos, self.desired_orientation))
-
     def target_velocity(self, time):
         """
         Returns the end effector's desired body-frame velocity at time t as a 6D
         twist. Note that this needs to be a rigid-body velocity, i.e. a member 
         of se(3) expressed as a 6D vector.
-
         The function get_g_matrix from utils may be useful to perform some frame
         transformations.
-
         Parameters
         ----------
         time : float
-
         Returns
         -------
         6x' :obj:`numpy.ndarray`
             desired body-frame velocity of the end effector
         """
-        if time > self.total_time:
+        if time >= self.total_time:
             return np.zeros(6)
         linear_vel = self.constant_velocity * self.direction_vector
         return np.hstack((linear_vel, np.zeros(3)))
-
     def target_acceleration(self, time):
         return np.zeros(6)
 

@@ -10,6 +10,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 # Lab imports
 from utils.utils import *
@@ -167,6 +168,137 @@ class Controller:
         zero_vel_dict = joint_array_to_dict(np.zeros(NUM_JOINTS), self._limb)
         self._limb.set_joint_velocities(zero_vel_dict)
 
+    # def plot_results(
+    #     self,
+    #     times,
+    #     actual_positions, 
+    #     actual_velocities, 
+    #     target_positions, 
+    #     target_velocities
+    # ):
+    #     """
+    #     Plots results.
+    #     If the path is in joint space, it will plot both workspace and jointspace plots.
+    #     Otherwise it'll plot only workspace
+
+    #     Inputs:
+    #     times : nx' :obj:`numpy.ndarray`
+    #     actual_positions : nx7 or nx6 :obj:`numpy.ndarray`
+    #         actual joint positions for each time in times
+    #     actual_velocities: nx7 or nx6 :obj:`numpy.ndarray`
+    #         actual joint velocities for each time in times
+    #     target_positions: nx7 or nx6 :obj:`numpy.ndarray`
+    #         target joint or workspace positions for each time in times
+    #     target_velocities: nx7 or nx6 :obj:`numpy.ndarray`
+    #         target joint or workspace velocities for each time in times
+    #     """
+
+    #     # Make everything an ndarray
+    #     times = np.array(times)
+    #     actual_positions = np.array(actual_positions)
+    #     actual_velocities = np.array(actual_velocities)
+    #     target_positions = np.array(target_positions)
+    #     target_velocities = np.array(target_velocities)
+
+    #     # Find the actual workspace positions and velocities
+    #     actual_workspace_positions = np.zeros((len(times), 3))
+    #     actual_workspace_velocities = np.zeros((len(times), 3))
+    #     actual_workspace_quaternions = np.zeros((len(times), 4))
+
+    #     for i in range(len(times)):
+    #         positions_dict = joint_array_to_dict(actual_positions[i], self._limb)
+    #         fk = self._kin.forward_position_kinematics(joint_values=positions_dict)
+            
+    #         actual_workspace_positions[i, :] = fk[:3]
+    #         actual_workspace_velocities[i, :] = \
+    #             self._kin.jacobian(joint_values=positions_dict)[:3].dot(actual_velocities[i])
+    #         actual_workspace_quaternions[i, :] = fk[3:]
+    #     # check if joint space
+    #     if self.is_joinstpace_controller:
+    #         # it's joint space
+
+    #         target_workspace_positions = np.zeros((len(times), 3))
+    #         target_workspace_velocities = np.zeros((len(times), 3))
+    #         target_workspace_quaternions = np.zeros((len(times), 4))
+
+    #         for i in range(len(times)):
+    #             positions_dict = joint_array_to_dict(target_positions[i], self._limb)
+    #             target_workspace_positions[i, :] = \
+    #                 self._kin.forward_position_kinematics(joint_values=positions_dict)[:3]
+    #             target_workspace_velocities[i, :] = \
+    #                 self._kin.jacobian(joint_values=positions_dict)[:3].dot(target_velocities[i])
+    #             target_workspace_quaternions[i, :] = np.array([0, 1, 0, 0])
+
+    #         # Plot joint space
+    #         plt.figure()
+    #         # print len(times), actual_positions.shape()
+    #         joint_num = len(self._limb.joint_names())
+    #         for joint in range(joint_num):
+    #             plt.subplot(joint_num,2,2*joint+1)
+    #             plt.plot(times, actual_positions[:,joint], label='Actual')
+    #             plt.plot(times, target_positions[:,joint], label='Desired')
+    #             plt.xlabel("Time (t)")
+    #             plt.ylabel("Joint " + str(joint) + " Position Error")
+    #             plt.legend()
+
+    #             plt.subplot(joint_num,2,2*joint+2)
+    #             plt.plot(times, actual_velocities[:,joint], label='Actual')
+    #             plt.plot(times, target_velocities[:,joint], label='Desired')
+    #             plt.xlabel("Time (t)")
+    #             plt.ylabel("Joint " + str(joint) + " Velocity Error")
+    #             plt.legend()
+    #         print("Close the plot window to continue")
+    #         plt.show()
+
+    #     else:
+    #         # it's workspace
+    #         target_workspace_positions = target_positions
+    #         target_workspace_velocities = target_velocities
+    #         target_workspace_quaternions = np.zeros((len(times), 4))
+    #         target_workspace_quaternions[:, 1] = 1
+
+    #     plt.figure()
+    #     workspace_joints = ('X', 'Y', 'Z')
+    #     joint_num = len(workspace_joints)
+    #     for joint in range(joint_num):
+    #         plt.subplot(joint_num,2,2*joint+1)
+    #         plt.plot(times, actual_workspace_positions[:,joint], label='Actual')
+    #         plt.plot(times, target_workspace_positions[:,joint], label='Desired')
+    #         plt.xlabel("Time (t)")
+    #         plt.ylabel(workspace_joints[joint] + " Position Error")
+    #         plt.legend()
+
+    #         plt.subplot(joint_num,2,2*joint+2)
+    #         plt.plot(times, actual_velocities[:,joint], label='Actual')
+    #         plt.plot(times, target_velocities[:,joint], label='Desired')
+    #         plt.xlabel("Time (t)")
+    #         plt.ylabel(workspace_joints[joint] + " Velocity Error")
+    #         plt.legend()
+
+    #     print("Close the plot window to continue")
+    #     plt.show()
+
+    #     # Plot orientation error. This is measured by considering the
+    #     # axis angle representation of the rotation matrix mapping
+    #     # the desired orientation to the actual orientation. We use
+    #     # the corresponding angle as our metric. Note that perfect tracking
+    #     # would mean that this "angle error" is always zero.
+    #     angles = []
+    #     for t in range(len(times)):
+    #         quat1 = target_workspace_quaternions[t]
+    #         quat2 = actual_workspace_quaternions[t]
+    #         theta = axis_angle(quat1, quat2)
+    #         angles.append(theta)
+
+    #     plt.figure()
+    #     plt.plot(times, angles)
+    #     plt.xlabel("Time (s)")
+    #     plt.ylabel("Error Angle of End Effector (rad)")
+    #     print("Close the plot window to continue")
+    #     plt.show()
+
+
+
     def plot_results(
         self,
         times,
@@ -174,51 +306,58 @@ class Controller:
         actual_velocities, 
         target_positions, 
         target_velocities
-    ):
+        ):
         """
-        Plots results.
-        If the path is in joint space, it will plot both workspace and jointspace plots.
-        Otherwise it'll plot only workspace
-
-        Inputs:
-        times : nx' :obj:`numpy.ndarray`
-        actual_positions : nx7 or nx6 :obj:`numpy.ndarray`
-            actual joint positions for each time in times
-        actual_velocities: nx7 or nx6 :obj:`numpy.ndarray`
-            actual joint velocities for each time in times
-        target_positions: nx7 or nx6 :obj:`numpy.ndarray`
-            target joint or workspace positions for each time in times
-        target_velocities: nx7 or nx6 :obj:`numpy.ndarray`
-            target joint or workspace velocities for each time in times
+        Plots joint space results on the first page, and workspace x-y-z and 3D motion on subsequent pages.
         """
-
-        # Make everything an ndarray
+        # Convert inputs to numpy arrays for consistency
         times = np.array(times)
         actual_positions = np.array(actual_positions)
         actual_velocities = np.array(actual_velocities)
         target_positions = np.array(target_positions)
         target_velocities = np.array(target_velocities)
 
-        # Find the actual workspace positions and velocities
+        # Joint space plotting (Page 1)
+        if self.is_joinstpace_controller:
+            plt.figure(figsize=(12, 12))
+            joint_num = actual_positions.shape[1]
+            for joint in range(joint_num):
+                # Position plots
+                plt.subplot(joint_num, 2, 2 * joint + 1)
+                plt.plot(times, actual_positions[:, joint], label='Actual')
+                plt.plot(times, target_positions[:, joint], label='Target', linestyle='dashed')
+                plt.xlabel("Time (s)")
+                plt.ylabel(f"Joint {joint} Position")
+                plt.title(f"Joint {joint} Position vs. Time")
+                plt.legend()
+
+                # Velocity plots
+                plt.subplot(joint_num, 2, 2 * joint + 2)
+                plt.plot(times, actual_velocities[:, joint], label='Actual')
+                plt.plot(times, target_velocities[:, joint], label='Target', linestyle='dashed')
+                plt.xlabel("Time (s)")
+                plt.ylabel(f"Joint {joint} Velocity")
+                plt.title(f"Joint {joint} Velocity vs. Time")
+                plt.legend()
+
+            plt.tight_layout()
+            plt.show()
+
+        # Workspace plotting (Page 2 and Page 3)
         actual_workspace_positions = np.zeros((len(times), 3))
         actual_workspace_velocities = np.zeros((len(times), 3))
-        actual_workspace_quaternions = np.zeros((len(times), 4))
 
         for i in range(len(times)):
             positions_dict = joint_array_to_dict(actual_positions[i], self._limb)
             fk = self._kin.forward_position_kinematics(joint_values=positions_dict)
-            
+
             actual_workspace_positions[i, :] = fk[:3]
             actual_workspace_velocities[i, :] = \
                 self._kin.jacobian(joint_values=positions_dict)[:3].dot(actual_velocities[i])
-            actual_workspace_quaternions[i, :] = fk[3:]
-        # check if joint space
-        if self.is_joinstpace_controller:
-            # it's joint space
 
+        if self.is_joinstpace_controller:
             target_workspace_positions = np.zeros((len(times), 3))
             target_workspace_velocities = np.zeros((len(times), 3))
-            target_workspace_quaternions = np.zeros((len(times), 4))
 
             for i in range(len(times)):
                 positions_dict = joint_array_to_dict(target_positions[i], self._limb)
@@ -226,75 +365,71 @@ class Controller:
                     self._kin.forward_position_kinematics(joint_values=positions_dict)[:3]
                 target_workspace_velocities[i, :] = \
                     self._kin.jacobian(joint_values=positions_dict)[:3].dot(target_velocities[i])
-                target_workspace_quaternions[i, :] = np.array([0, 1, 0, 0])
-
-            # Plot joint space
-            plt.figure()
-            # print len(times), actual_positions.shape()
-            joint_num = len(self._limb.joint_names())
-            for joint in range(joint_num):
-                plt.subplot(joint_num,2,2*joint+1)
-                plt.plot(times, actual_positions[:,joint], label='Actual')
-                plt.plot(times, target_positions[:,joint], label='Desired')
-                plt.xlabel("Time (t)")
-                plt.ylabel("Joint " + str(joint) + " Position Error")
-                plt.legend()
-
-                plt.subplot(joint_num,2,2*joint+2)
-                plt.plot(times, actual_velocities[:,joint], label='Actual')
-                plt.plot(times, target_velocities[:,joint], label='Desired')
-                plt.xlabel("Time (t)")
-                plt.ylabel("Joint " + str(joint) + " Velocity Error")
-                plt.legend()
-            print("Close the plot window to continue")
-            plt.show()
-
         else:
-            # it's workspace
             target_workspace_positions = target_positions
             target_workspace_velocities = target_velocities
-            target_workspace_quaternions = np.zeros((len(times), 4))
-            target_workspace_quaternions[:, 1] = 1
 
-        plt.figure()
-        workspace_joints = ('X', 'Y', 'Z')
-        joint_num = len(workspace_joints)
-        for joint in range(joint_num):
-            plt.subplot(joint_num,2,2*joint+1)
-            plt.plot(times, actual_workspace_positions[:,joint], label='Actual')
-            plt.plot(times, target_workspace_positions[:,joint], label='Desired')
-            plt.xlabel("Time (t)")
-            plt.ylabel(workspace_joints[joint] + " Position Error")
+        # Workspace X, Y, Z motion (Page 2)
+        plt.figure(figsize=(12, 8))
+        workspace_axes = ['X', 'Y', 'Z']
+        for i, axis in enumerate(workspace_axes):
+            plt.subplot(3, 2, 2 * i + 1)
+            plt.plot(times, actual_workspace_positions[:, i], label='Actual')
+            plt.plot(times, target_workspace_positions[:, i], label='Target', linestyle='dashed')
+            plt.xlabel("Time (s)")
+            plt.ylabel(f"{axis} Position")
+            plt.title(f"{axis} Workspace Position vs. Time")
             plt.legend()
 
-            plt.subplot(joint_num,2,2*joint+2)
-            plt.plot(times, actual_velocities[:,joint], label='Actual')
-            plt.plot(times, target_velocities[:,joint], label='Desired')
-            plt.xlabel("Time (t)")
-            plt.ylabel(workspace_joints[joint] + " Velocity Error")
+            plt.subplot(3, 2, 2 * i + 2)
+            plt.plot(times, actual_workspace_velocities[:, i], label='Actual')
+            plt.plot(times, target_workspace_velocities[:, i], label='Target', linestyle='dashed')
+            plt.xlabel("Time (s)")
+            plt.ylabel(f"{axis} Velocity")
+            plt.title(f"{axis} Workspace Velocity vs. Time")
             plt.legend()
 
-        print("Close the plot window to continue")
+        plt.tight_layout()
         plt.show()
 
-        # Plot orientation error. This is measured by considering the
-        # axis angle representation of the rotation matrix mapping
-        # the desired orientation to the actual orientation. We use
-        # the corresponding angle as our metric. Note that perfect tracking
-        # would mean that this "angle error" is always zero.
-        angles = []
-        for t in range(len(times)):
-            quat1 = target_workspace_quaternions[t]
-            quat2 = actual_workspace_quaternions[t]
-            theta = axis_angle(quat1, quat2)
-            angles.append(theta)
-
+        # 2D X-Y plot (Page 3)
         plt.figure()
-        plt.plot(times, angles)
-        plt.xlabel("Time (s)")
-        plt.ylabel("Error Angle of End Effector (rad)")
-        print("Close the plot window to continue")
+        plt.plot(actual_workspace_positions[:, 0], actual_workspace_positions[:, 1], label='Actual')
+        plt.plot(target_workspace_positions[:, 0], target_workspace_positions[:, 1], label='Target', linestyle='dashed')
+        plt.xlabel("X Position")
+        plt.ylabel("Y Position")
+        plt.legend()
+        plt.title("Workspace Motion: X vs. Y")
+        plt.axis('equal')
+        plt.grid()
         plt.show()
+
+        # 3D Plot for workspace motion (Page 3)
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.plot(
+            actual_workspace_positions[:, 0],
+            actual_workspace_positions[:, 1],
+            actual_workspace_positions[:, 2],
+            label='Actual'
+        )
+        ax.plot(
+            target_workspace_positions[:, 0],
+            target_workspace_positions[:, 1],
+            target_workspace_positions[:, 2],
+            label='Target', linestyle='dashed'
+        )
+        ax.set_xlabel("X Position")
+        ax.set_ylabel("Y Position")
+        ax.set_zlabel("Z Position")
+        ax.set_title("3D Workspace Motion")
+        ax.legend()
+        plt.show()
+
+        print("Close the plot window to continue")
+
+
+
         
 
     def execute_path(self, path, rate=200, timeout=None, log=False):
@@ -344,6 +479,7 @@ class Controller:
 
             # If the controller has timed out, stop moving and return false
             if timeout is not None and t >= timeout:
+                print("TEST")
                 # Set velocities to zero
                 self.stop_moving()
                 return False
@@ -374,6 +510,7 @@ class Controller:
             r.sleep()
 
             if current_index >= max_index:
+                print(current_index)
                 self.stop_moving()
                 break
 
@@ -424,7 +561,7 @@ class PIDJointVelocityController(Controller):
         self.Kp = np.diag(Kp)
         self.Ki = np.diag(Ki)
         self.Kd = np.diag(Kd)
-        self.Kw = 0
+        self.Kw = 0.1
         
         self.integ_error = np.zeros(7)
         
@@ -445,21 +582,21 @@ class PIDJointVelocityController(Controller):
         target_velocity: 7x' :obj:`numpy.ndarray` of desired velocities
         target_acceleration: 7x' :obj:`numpy.ndarray` of desired accelerations
         """
-        current_position = get_joint_positions(self._limb)
-        current_velocity = get_joint_velocities(self._limb)
+        current_position = get_joint_positions(self._limb) # joint angles
+        current_velocity = get_joint_velocities(self._limb) # joint speeds
+
+
+        e = target_position - current_position
+        e_dot = target_velocity - current_velocity
+        self.integ_error = self.Kw * self.integ_error + e
+
+        P_out = self.Kp @ e
+        I_out = self.Ki @ self.integ_error
+        D_out = self.Kd @ e_dot
         
-        # TODO: implement PID control to set the joint velocities. 
-        #print(current_position)
-        #print(current_velocity)
-        pos_error = target_position - current_position
-        vel_error = target_velocity - current_velocity
-        self.integ_error = self.Kw * self.integ_error + pos_error
-        p_out = self.Kp @ pos_error
-        print(p_out)
-        i_out = self.Ki @ self.integ_error
-        print(i_out)
-        d_out = self.Kd @ vel_error
-        print(d_out)
-        controller_velocity = target_velocity + p_out + i_out + d_out
-        #print(controller_velocity)
+        controller_velocity = target_velocity + P_out + I_out + D_out
+
+        velocity_scale = 1.5
+        #controller_velocity *= velocity_scale
+
         self._limb.set_joint_velocities(joint_array_to_dict(controller_velocity, self._limb))
