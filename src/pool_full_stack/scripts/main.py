@@ -14,7 +14,8 @@ from paths.paths import MotionPath
 from paths.path_planner import PathPlanner
 from controllers.controllers import ( 
     PIDJointVelocityController, 
-    FeedforwardJointVelocityController
+    FeedforwardJointVelocityController,
+    PIDJointTorqueController
 )
 from utils.utils import *
 
@@ -25,6 +26,9 @@ import tf2_ros
 import intera_interface
 from moveit_msgs.msg import DisplayTrajectory, RobotState
 from sawyer_pykdl import sawyer_kinematics
+
+
+NUM_JOINTS = 7
 
 def get_current_position(limb):
     """
@@ -152,7 +156,7 @@ def get_trajectory(limb, kin, direction, distance, target_vel, ik_solver, args):
         start_position = current_position,
         goal_position = target_position,
         target_velocity = target_vel,
-        desired_orientation = [(2 ** 0.5)/2, 0, 0, (2 ** 0.5)/2]
+        desired_orientation = [0, 1, 0, 0]
     )
     path = MotionPath(limb, kin, trajectory)
     return path.to_robot_trajectory(args.num_way, jointspace=True, extra_points=0)
@@ -172,11 +176,17 @@ def get_controller(controller_name, limb, kin):
     if controller_name == 'open_loop':
         controller = FeedforwardJointVelocityController(limb, kin)
     elif controller_name == 'pid':
-        Kp = 0.5 * np.array([0.4, 4, 1.7, 0.5, 2, 2, 3])
+        Kp = 0.25 * np.array([0.4, 4, 1.7, 0.5, 2, 2, 3])
         Kd = 0.05 * np.array([2, 0.8, 2, 0.5, 0.8, 0.8, 0.8])
         Ki = 0.01 * np.array([1.4, 1.5, 1.4, 1, 0.6, 0.6, 0.6])
         Kw = np.array([0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9])
         controller = PIDJointVelocityController(limb, kin, Kp, Ki, Kd, Kw)
+    elif controller_name == 'pid_torque': # Gravity compensation
+        Kp = 3 * np.array([0.4, 6, 1.7, 0.5, 2, 2, 3])
+        Kd = 0.05 * np.array([2, 0.8, 2, 0.5, 0.8, 0.8, 0.8])
+        Ki = 0.01 * np.array([1.4, 1.5, 1.4, 1, 0.6, 0.6, 0.6])
+        Kw = np.array([0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9])
+        controller = PIDJointTorqueController(limb, kin, Kp, Ki, Kd, Kw)
     else:
         raise ValueError('Controller {} not recognized'.format(controller_name))
     return controller
@@ -221,9 +231,11 @@ def main():
 
     rospy.init_node('linear_motion_node')
 
+    substitute = "stp_022312TP99620_tip_1"
+
     limb = intera_interface.Limb("right")
     kin = sawyer_kinematics("right")
-    ik_solver = IK("base", "right_gripper_tip")
+    ik_solver = IK("base", substitute) # for amir
 
     pub = rospy.Publisher('move_group/display_planned_path', DisplayTrajectory, queue_size=10)
     disp_traj = DisplayTrajectory()
@@ -233,7 +245,7 @@ def main():
     planner = PathPlanner('right_arm')
 
     curr_pos = get_current_position_and_orientation(limb)
-    curr_pos.pose.position.z -= 0.65
+    curr_pos.pose.position.z -= 0.4
     plan = planner.plan_to_pose(curr_pos)
 
     if args.controller_name != "moveit":
@@ -243,7 +255,7 @@ def main():
     robot_trajectory = get_trajectory(
         limb, 
         kin, 
-        np.array([1, 0, 0]),
+        np.array([-1, 0.5, 0]),
         0.1, # meters
         0.5,
         ik_solver, 
@@ -254,7 +266,7 @@ def main():
     robot_trajectory = get_trajectory(
         limb, 
         kin, 
-        np.array([-1, 0, 0]),
+        np.array([1, -0.5, 0]),
         0.1, # meters
         0.5,
         ik_solver, 
