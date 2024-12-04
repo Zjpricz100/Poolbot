@@ -4,7 +4,7 @@ import rospy
 import cv2
 import numpy as np
 from sensor_msgs.msg import Image
-from sensor_msgs.msg import CameraInfo # For camera intrinsic parameters
+from sensor_msgs.msg import CameraInfo  # For camera intrinsic parameters
 from cv_bridge import CvBridge
 import matplotlib.pyplot as plt
 import os
@@ -41,12 +41,11 @@ class ObjectDetector:
         rospy.spin()
 
     def camera_info_callback(self, msg):
-        # TODO: Extract the intrinsic parameters from the CameraInfo message (look this message type up online)
+        # Extract the intrinsic parameters from the CameraInfo message
         self.fx = msg.K[0]
         self.fy = msg.K[4]
         self.cx = msg.K[2]
         self.cy = msg.K[5]
-
 
     def color_image_callback(self, msg):
         try:
@@ -77,8 +76,6 @@ class ObjectDetector:
             rospy.logerr(f"Failed to get table height: {e}")
             return None
 
-
-
     def process_images(self):
         # Convert the color image to HSV color space
         hsv = cv2.cvtColor(self.cv_color_image, cv2.COLOR_BGR2HSV)
@@ -96,10 +93,8 @@ class ObjectDetector:
             'green' : (np.array([31, 102, 0]), np.array([105, 255, 123]))
         }
 
-      # Create a copy of the original image for drawing
+        # Create a copy of the original image for drawing
         display_image = self.cv_color_image.copy()
-
-        #z = self.get_table_height()
 
         # Process each ball color
         for color_name, (lower_hsv, upper_hsv) in ball_numbers.items():
@@ -109,6 +104,9 @@ class ObjectDetector:
             # Find contours
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             
+            # Initialize a list to store circularity and contour information
+            ball_candidates = []
+
             # Process each contour
             for contour in contours:
                 # Filter by area to remove very small or very large objects
@@ -128,21 +126,29 @@ class ObjectDetector:
                             
                             # Verify the object is roughly circular
                             if radius > 0.5:  # Minimum ball size
-                                # Existing ball detection and TF broadcasting logic
-                                center_x = int(x)
-                                center_y = int(y)
-                                
-                                # Draw and label circular objects
-                                cv2.drawContours(display_image, [contour], 0, (0, 255, 0), 2)
-                                cv2.putText(
-                                    display_image, 
-                                    f"{color_name} Ball (Circularity: {circularity:.2f})", 
-                                    (center_x, center_y), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 
-                                    0.5, 
-                                    (255, 0, 0), 
-                                    2
-                                )
+                                ball_candidates.append((color_name, circularity, contour))
+
+            # Sort the candidates by circularity and select the two most circular ones
+            ball_candidates = sorted(ball_candidates, key=lambda x: x[1], reverse=True)[:2]
+
+            # Draw and label the most circular balls
+            for candidate in ball_candidates:
+                color_name, circularity, contour = candidate
+                (x, y), radius = cv2.minEnclosingCircle(contour)
+                center_x = int(x)
+                center_y = int(y)
+                
+                # Draw the contour and label the ball
+                cv2.drawContours(display_image, [contour], 0, (0, 255, 0), 2)
+                cv2.putText(
+                    display_image, 
+                    f"{color_name} Ball (Circularity: {circularity:.2f})", 
+                    (center_x, center_y), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 
+                    0.5, 
+                    (255, 0, 0), 
+                    2
+                )
 
         # Display the image with detected balls
         cv2.imshow('Detected Balls', display_image)
