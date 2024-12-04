@@ -14,7 +14,7 @@ from geometry_msgs.msg import PoseStamped
 from intera_core_msgs.srv import SolvePositionIK, SolvePositionIKRequest
 
 from utils.utils import *
-
+# test
 try:
     import rospy
     from moveit_msgs.msg import RobotTrajectory
