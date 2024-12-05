@@ -9,7 +9,7 @@ from cv_bridge import CvBridge
 import matplotlib.pyplot as plt
 import os
 import time
-import tf
+import tf2_ros as tf
 from geometry_msgs.msg import Point, PoseStamped
 from std_msgs.msg import Header
 from table_log import TableLog
@@ -25,22 +25,33 @@ class ObjectDetector:
 
         self.cv_color_image = None
 
-        self.color_image_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.color_image_callback)
+        #self.color_image_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.color_image_callback)
 
         self.fx = None
         self.fy = None
         self.cx = None
         self.cy = None
 
-        self.camera_info_sub = rospy.Subscriber("/usb_cam/camera_info", CameraInfo, self.camera_info_callback)
+        #self.camera_info_sub = rospy.Subscriber("/usb_cam/camera_info", CameraInfo, self.camera_info_callback)
 
-        self.tf_listener = tf.TransformListener()  # Create a TransformListener object
+        #self.tf_listener = tf.TransformListener()  # Create a TransformListener object
 
         self.point_pub = rospy.Publisher("goal_point", Point, queue_size=10)
         self.image_pub = rospy.Publisher('detected_cup', Image, queue_size=10)
 
-        self.table = TableLog()
-        rospy.spin()
+        self.message_type = PoseStamped
+        self.pubs = {
+            "white" : rospy.Publisher("white_ball", self.message_type, queue_size=10),
+            "yellow" : rospy.Publisher("yellow_ball", self.message_type, queue_size=10),
+            "blue" : rospy.Publisher("blue_ball", self.message_type, queue_size=10),
+            "red" : rospy.Publisher("red_ball", self.message_type, queue_size=10),
+            "purple" : rospy.Publisher("purple_ball", self.message_type, queue_size=10),
+            "orange" : rospy.Publisher("orange_ball", self.message_type, queue_size=10),
+            "maroon" : rospy.Publisher("maroon_ball", self.message_type, queue_size=10),
+            "black" : rospy.Publisher("black_ball", self.message_type, queue_size=10),
+            "green" : rospy.Publisher("green_ball", self.message_type, queue_size=10)
+        }
+        #rospy.spin()
 
     def camera_info_callback(self, msg):
         # Extract the intrinsic parameters from the CameraInfo message
@@ -67,11 +78,12 @@ class ObjectDetector:
             cartesian = np.linalg.inv(K) @ image
 
         try:
+            
             # Convert the ROS Image message to an OpenCV image (BGR8 format)
             frame = self.bridge.imgmsg_to_cv2(msg, "bgr8")
             ball_dict = self.detect_balls(frame)
             for (key, value) in ball_dict.items():
-                pub = self.table.pubs[key]
+                pub = self.pubs[key]
                 ball = PoseStamped()
                 ball.pose.position.x = value[0]
                 ball.pose.position.y = value[1]
@@ -83,23 +95,27 @@ class ObjectDetector:
         except Exception as e:
             print("Error:", e)
 
-    def get_table_height(self):
+    def get_table_height(self, ar_tag_number = 3):
         """
         Get the height of the table using the AR tag transform.
         """
         # Create a tf2 buffer and listener
+    
         tfBuffer = tf.Buffer()
-        
+        tfListener = tf.TransformListener(tfBuffer)
+        print("a")
         try:
             # Lookup the transform for the AR tag
-            transform = tfBuffer.lookup_transform("base", "ar_marker_0", rospy.Time(0), rospy.Duration(10.0))
-            
+            transform = tfBuffer.lookup_transform("base", "ar_marker_3", rospy.Time(0), rospy.Duration(10.0))
+            print("hi")
             # Extract the z-coordinate (height)
             table_height = transform.transform.translation.z
+            
             rospy.loginfo(f"Table height (z): {table_height} meters")
             return table_height
         
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+            print(e)
             rospy.logerr(f"Failed to get table height: {e}")
             return None
 
@@ -186,4 +202,5 @@ class ObjectDetector:
             return ball_dict
 
 if __name__ == '__main__':
-    ObjectDetector()
+    w = ObjectDetector()
+    w.get_table_height()

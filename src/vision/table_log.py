@@ -26,3 +26,4 @@ class TableLog:
             "green" : rospy.Publisher("green_ball", self.message_type, queue_size=10)
         }
     
+    
