@@ -119,6 +119,32 @@ class ObjectDetector:
             print(e)
             rospy.logerr(f"Failed to get table height: {e}")
             return None
+        
+    def pixel_to_world(u, v, Z, camera_matrix, tf_buffer):
+        # Camera intrinsics
+        fx, fy = camera_matrix[0, 0], camera_matrix[1, 1]
+        cx, cy = camera_matrix[0, 2], camera_matrix[1, 2]
+
+        # Pixel to camera coordinates
+        X_camera = Z * (u - cx) / fx
+        Y_camera = Z * (v - cy) / fy
+        Z_camera = Z
+
+        # Create point in camera frame
+        ball_in_camera_frame = PoseStamped()
+        ball_in_camera_frame.header.frame_id = "camera_frame"
+        ball_in_camera_frame.point.x = X_camera
+        ball_in_camera_frame.point.y = Y_camera
+        ball_in_camera_frame.point.z = Z_camera
+
+        try:
+            # Transform to world frame
+            ball_in_world_frame = tf_buffer.transform(ball_in_camera_frame, "world_frame", rospy.Duration(1.0))
+            return ball_in_world_frame.point.x, ball_in_world_frame.point.y, ball_in_world_frame.point.z
+
+        except tf2_ros.TransformException as ex:
+            rospy.logerr(f"Transform failed: {ex}")
+            return None
 
     def detect_balls(self, frame):
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
