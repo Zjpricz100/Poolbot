@@ -14,7 +14,7 @@ from paths.paths import MotionPath
 from paths.path_planner import PathPlanner
 from controllers.controllers import ( 
     PIDJointVelocityController, 
-    FeedforwardJointVelocityController
+    FeedforwardJointVelocityController,
 )
 from utils.utils import *
 
@@ -24,7 +24,12 @@ import rospy
 import tf2_ros
 import intera_interface
 from moveit_msgs.msg import DisplayTrajectory, RobotState
+from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest
+from moveit_commander import MoveGroupCommander
 from sawyer_pykdl import sawyer_kinematics
+
+
+NUM_JOINTS = 7
 
 def get_current_position(limb):
     """
@@ -126,7 +131,7 @@ def tuck():
     else:
         print('Canceled. Not tucking the arm.')
 
-def get_trajectory(limb, kin, direction, distance, target_vel, ik_solver, args):
+def get_trajectory(limb, kin, direction, distance, target_vel, ik_solver, args, ar_tag=False):
     """
     Returns an appropriate robot trajectory for the specified task.  You should 
     be implementing the path functions in paths.py and call them here
@@ -152,7 +157,7 @@ def get_trajectory(limb, kin, direction, distance, target_vel, ik_solver, args):
         start_position = current_position,
         goal_position = target_position,
         target_velocity = target_vel,
-        desired_orientation = [(2 ** 0.5)/2, 0, 0, (2 ** 0.5)/2]
+        desired_orientation = [0, 1, 0, 0]
     )
     path = MotionPath(limb, kin, trajectory)
     return path.to_robot_trajectory(args.num_way, jointspace=True, extra_points=0)
@@ -172,11 +177,17 @@ def get_controller(controller_name, limb, kin):
     if controller_name == 'open_loop':
         controller = FeedforwardJointVelocityController(limb, kin)
     elif controller_name == 'pid':
-        Kp = 0.5 * np.array([0.4, 4, 1.7, 0.5, 2, 2, 3])
+        Kp = 0.25 * np.array([0.4, 4, 1.7, 0.5, 2, 2, 3])
         Kd = 0.05 * np.array([2, 0.8, 2, 0.5, 0.8, 0.8, 0.8])
         Ki = 0.01 * np.array([1.4, 1.5, 1.4, 1, 0.6, 0.6, 0.6])
         Kw = np.array([0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9])
         controller = PIDJointVelocityController(limb, kin, Kp, Ki, Kd, Kw)
+    elif controller_name == 'pid_torque': # Gravity compensation
+        Kp = 3 * np.array([0.4, 6, 1.7, 0.5, 2, 2, 3])
+        Kd = 0.05 * np.array([2, 0.8, 2, 0.5, 0.8, 0.8, 0.8])
+        Ki = 0.01 * np.array([1.4, 1.5, 1.4, 1, 0.6, 0.6, 0.6])
+        Kw = np.array([0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9])
+        controller = PIDJointTorqueController(limb, kin, Kp, Ki, Kd, Kw)
     else:
         raise ValueError('Controller {} not recognized'.format(controller_name))
     return controller
@@ -208,6 +219,97 @@ def exec_trajectory(robot_trajectory, pub, disp_traj, args, limb, kin, planner):
         print('Failed to move to position')
         sys.exit(0)
 
+def lookup_tag(tag_number):
+    """
+    Given an AR tag number, this returns the position of the AR tag in the robot's base frame.
+
+    Parameters
+    ----------
+    tag_number : int
+
+    Returns
+    -------
+    3x' :obj:`numpy.ndarray`
+        tag position
+    """
+    tfBuffer = tf2_ros.Buffer()
+    tfListener = tf2_ros.TransformListener(tfBuffer)
+
+    try:
+        # TODO: lookup the transform and save it in trans
+        # The rospy.Time(0) is the latest available 
+        # The rospy.Duration(10.0) is the amount of time to wait for the transform to be available before throwing an exception
+        trans = tfBuffer.lookup_transform('base',f'ar_marker_{tag_number}', rospy.Time(0), rospy.Duration(10.0))
+    except Exception as e:
+        print(e)
+        print("Retrying ...")
+
+    tag_pos = [getattr(trans.transform.translation, dim) for dim in ('x', 'y', 'z')]
+    print(tag_pos)
+    return np.array(tag_pos)
+
+# Uses Move it and IK to move to the starting point of the table (designated by AR tag)
+def setup_game(limb, kin, ik_solver, args):    
+    # Wait for the IK service to become available
+    rospy.wait_for_service('compute_ik')
+    compute_ik = rospy.ServiceProxy('compute_ik', GetPositionIK)
+
+    # Create a MoveGroupCommander for the right arm
+    group = MoveGroupCommander("right_arm")
+
+    # Grab ar_tag positions
+    tag_pos = [lookup_tag(marker) for marker in args.ar_marker][0]
+    print(tag_pos)
+    while not rospy.is_shutdown():
+        # Set up the first target pose
+        request = GetPositionIKRequest()
+        request.ik_request.group_name = "right_arm"
+        link = "right_gripper_tip"
+        request.ik_request.ik_link_name = link
+        request.ik_request.pose_stamped.header.frame_id = "base"
+        
+        # Set request pose position to ar_tag pos
+        request.ik_request.pose_stamped.pose.position.x = tag_pos[0]
+        request.ik_request.pose_stamped.pose.position.y = tag_pos[1]
+        request.ik_request.pose_stamped.pose.position.z = tag_pos[2] + 0.5
+        request.ik_request.pose_stamped.pose.orientation.x = 0.0
+        request.ik_request.pose_stamped.pose.orientation.y = 1.0
+        request.ik_request.pose_stamped.pose.orientation.z = 0.0
+        request.ik_request.pose_stamped.pose.orientation.w = 0.0
+
+        try:
+            # Compute IK for the first target
+            response = compute_ik(request)
+            print(response)
+            if response.error_code.val == response.error_code.SUCCESS:
+                waypoints = []
+                
+                # Append the first target pose
+                waypoints.append(request.ik_request.pose_stamped.pose)
+
+                # Plan a Cartesian path
+                (plan, fraction) = group.compute_cartesian_path(
+                    waypoints,   # waypoints to follow
+                    0.01,        # eef_step
+                    0.0          # jump_threshold
+                )
+                print(fraction)
+
+                # User confirmation before executing
+                user_input = input("Enter 'y' if the trajectory looks safe on RVIZ")
+                if user_input == 'y':
+                    group.execute(plan, wait=True)
+                    rospy.sleep(1.0)
+
+        except rospy.ServiceException as e:
+            print("Service call failed: %s" % e)
+
+
+def moveToBall(ball_position, limb, kin, ik_solver, args):
+    return 'fun'
+    
+
+    
 
 def main():
     parser = argparse.ArgumentParser()
@@ -217,13 +319,18 @@ def main():
     parser.add_argument('-timeout', type=int, default=None, help='Timeout in seconds. Default: None')
     parser.add_argument('-num_way', type=int, default=50, help='Number of waypoints. Default: 50')
     parser.add_argument('--log', action='store_true', help='Log and plot controller performance')
+    parser.add_argument('-ar_marker', '-ar', nargs='+', help=
+        'Which AR marker to use.  Default: 1'
+    )
     args = parser.parse_args()
 
     rospy.init_node('linear_motion_node')
 
+    substitute = "stp_022312TP99620_tip_1"
+
     limb = intera_interface.Limb("right")
     kin = sawyer_kinematics("right")
-    ik_solver = IK("base", "right_gripper_tip")
+    ik_solver = IK("base", "right_gripper_tip") # for amir
 
     pub = rospy.Publisher('move_group/display_planned_path', DisplayTrajectory, queue_size=10)
     disp_traj = DisplayTrajectory()
@@ -231,19 +338,21 @@ def main():
     # Get an appropriate RobotTrajectory for the linear task
     # This is a wrapper around MoveIt! for you to use. We use MoveIt! to go to the start position
     planner = PathPlanner('right_arm')
-
+    '''
+    
     curr_pos = get_current_position_and_orientation(limb)
-    curr_pos.pose.position.z -= 0.65
+    curr_pos.pose.position.z -= 0.4
     plan = planner.plan_to_pose(curr_pos)
 
     if args.controller_name != "moveit":
         plan = planner.retime_trajectory(plan, 0.3)
     planner.execute_plan(plan[1])
-
+    '''
+    setup_game(limb, kin, ik_solver, args)
     robot_trajectory = get_trajectory(
         limb, 
         kin, 
-        np.array([1, 0, 0]),
+        np.array([-1, 0.5, 0]),
         0.1, # meters
         0.5,
         ik_solver, 
@@ -254,7 +363,7 @@ def main():
     robot_trajectory = get_trajectory(
         limb, 
         kin, 
-        np.array([-1, 0, 0]),
+        np.array([1, -0.5, 0]),
         0.1, # meters
         0.5,
         ik_solver, 

@@ -9,7 +9,7 @@ from cv_bridge import CvBridge
 import matplotlib.pyplot as plt
 import os
 import time
-import tf2_ros as tf
+import tf2_ros
 from geometry_msgs.msg import Point, PoseStamped
 from std_msgs.msg import Header
 from table_log import TableLog
@@ -25,16 +25,19 @@ class ObjectDetector:
 
         self.cv_color_image = None
 
-        #self.color_image_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.color_image_callback)
+        self.color_image_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.color_image_callback)
 
         self.fx = None
         self.fy = None
         self.cx = None
         self.cy = None
 
-        #self.camera_info_sub = rospy.Subscriber("/usb_cam/camera_info", CameraInfo, self.camera_info_callback)
+        self.camera_info_sub = rospy.Subscriber("/usb_cam/camera_info", CameraInfo, self.camera_info_callback)
 
         #self.tf_listener = tf.TransformListener()  # Create a TransformListener object
+        self.tfBuffer = tf2_ros.Buffer()
+        self.tfListener = tf2_ros.TransformListener(self.tfBuffer)
+        rospy.sleep(2)
 
         self.point_pub = rospy.Publisher("goal_point", Point, queue_size=10)
         self.image_pub = rospy.Publisher('detected_cup', Image, queue_size=10)
@@ -51,7 +54,7 @@ class ObjectDetector:
             "black" : rospy.Publisher("black_ball", self.message_type, queue_size=10),
             "green" : rospy.Publisher("green_ball", self.message_type, queue_size=10)
         }
-        #rospy.spin()
+        rospy.spin()
 
     def camera_info_callback(self, msg):
         # Extract the intrinsic parameters from the CameraInfo message
@@ -101,12 +104,10 @@ class ObjectDetector:
         """
         # Create a tf2 buffer and listener
     
-        tfBuffer = tf.Buffer()
-        tfListener = tf.TransformListener(tfBuffer)
         print("a")
         try:
             # Lookup the transform for the AR tag
-            transform = tfBuffer.lookup_transform("base", "ar_marker_3", rospy.Time(0), rospy.Duration(10.0))
+            transform = self.tfBuffer.lookup_transform("usb_cam", "ar_marker_3", rospy.Time(0))
             print("hi")
             # Extract the z-coordinate (height)
             table_height = transform.transform.translation.z
@@ -114,7 +115,7 @@ class ObjectDetector:
             rospy.loginfo(f"Table height (z): {table_height} meters")
             return table_height
         
-        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
             print(e)
             rospy.logerr(f"Failed to get table height: {e}")
             return None
@@ -127,7 +128,7 @@ class ObjectDetector:
 
         # Detect circles using HoughCircles
         circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, dp=1.3, minDist=30,
-                                    param1=100, param2=30, minRadius=25, maxRadius=35)
+                                    param1=100, param2=30, minRadius=15, maxRadius=25)
 
         # If some circles are detected
         if circles is not None:
