@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import os
 import time
 import tf2_ros
+import tf2_geometry_msgs
 from geometry_msgs.msg import Point, PoseStamped
 from std_msgs.msg import Header
 from table_log import TableLog
@@ -113,7 +114,7 @@ class ObjectDetector:
             # Extract the z-coordinate (height)
             table_height = transform.transform.translation.z
             
-            rospy.loginfo(f"Table height (z): {table_height} meters")
+            #rospy.loginfo(f"Table height (z): {table_height} meters")
             return table_height
         
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
@@ -130,24 +131,19 @@ class ObjectDetector:
 
         # Create point in camera frame
         ball_in_camera_frame = PoseStamped()
+        ball_in_camera_frame.header.frame_id = "usb_cam"
         ball_in_camera_frame.pose.position.x = X_camera
         ball_in_camera_frame.pose.position.y = Y_camera
         ball_in_camera_frame.pose.position.z = Z_camera
 
-        try:
-            # Transform to world frame
-            ball_in_world_frame = self.tfBuffer.transform(ball_in_camera_frame, "base", rospy.Duration(1.0))
-            ball_in_base_frame = PoseStamped()
-            ball_in_base_frame.pose.position.x = ball_in_world_frame.pose.position.x
-            ball_in_base_frame.pose.position.y = ball_in_world_frame.pose.position.y
-            ball_in_base_frame.pose.position.z = ball_in_world_frame.pose.position.z
-            return ball_in_base_frame
-
-        except tf2_ros.TransformException as ex:
-            rospy.logerr(f"Transform failed: {ex}")
-            return None
-
-        return ball_in_camera_frame
+        ball_in_world_frame = self.tfBuffer.transform(ball_in_camera_frame, "base", rospy.Duration(1.0))
+        ball_in_base_frame = PoseStamped()
+        ball_in_base_frame.header.stamp = rospy.get_rostime()
+        ball_in_base_frame.header.frame_id = "base"
+        ball_in_base_frame.pose.position.x = ball_in_world_frame.pose.position.x
+        ball_in_base_frame.pose.position.y = ball_in_world_frame.pose.position.y
+        ball_in_base_frame.pose.position.z = ball_in_world_frame.pose.position.z
+        return ball_in_base_frame
 
     def detect_balls(self, frame):
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
