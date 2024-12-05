@@ -1,0 +1,4 @@
+<launch>
+	<node pkg = "tf" type = "static_transform_publisher" name = "camera_tf_pub" args="-0.025 -0.07 0.04 0 0 -0.7071 0.7071 right_gripper_r_finger usb_cam 100" />
+	<node pkg = "tf" type = "static_transform_publisher" name = "pole_tf_pub" args="-0.2 0 0.02 0 0 0 1 right_gripper_r_finger pole 100" />
+</launch>

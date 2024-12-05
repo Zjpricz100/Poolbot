@@ -96,9 +96,6 @@ class ObjectDetector:
                 ball = self.pixel_to_world(x, y, Z)
                 pub.publish(ball)
 
-
-
-
         except Exception as e:
             print("Error:", e)
 
