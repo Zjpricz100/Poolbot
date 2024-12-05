@@ -10,8 +10,9 @@ import matplotlib.pyplot as plt
 import os
 import time
 import tf
-from geometry_msgs.msg import Point, PointStamped
+from geometry_msgs.msg import Point, PoseStamped
 from std_msgs.msg import Header
+from table_log import TableLog
 
 
 PLOTS_DIR = os.path.join(os.getcwd(), 'plots')
@@ -38,6 +39,7 @@ class ObjectDetector:
         self.point_pub = rospy.Publisher("goal_point", Point, queue_size=10)
         self.image_pub = rospy.Publisher('detected_cup', Image, queue_size=10)
 
+        self.table = TableLog()
         rospy.spin()
 
     def camera_info_callback(self, msg):
@@ -47,11 +49,36 @@ class ObjectDetector:
         self.cx = msg.K[2]
         self.cy = msg.K[5]
 
+
     def color_image_callback(self, msg):
+
+        def image_to_cartesian(image, Z):
+            """
+            Converts a tuple of (x, y) into cartesian coordinates (X, Y, Z)
+            where Z is fixed depth
+            """
+            K = np.array([
+                [self.fx, 0, 0],
+                [0, self.fy, 0],
+                [0, 0, 1]
+            ])
+            image = np.array(image)
+            image = np.concatenate((image, Z))
+            cartesian = np.linalg.inv(K) @ image
+
         try:
             # Convert the ROS Image message to an OpenCV image (BGR8 format)
             frame = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-            self.detect_balls(frame)
+            ball_dict = self.detect_balls(frame)
+            for (key, value) in ball_dict.items():
+                pub = self.table.pubs[key]
+                ball = PoseStamped()
+                ball.pose.position.x = value[0]
+                ball.pose.position.y = value[1]
+                pub.publish(ball)
+
+
+
 
         except Exception as e:
             print("Error:", e)
