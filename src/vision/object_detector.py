@@ -107,11 +107,9 @@ class ObjectDetector:
         """
         # Create a tf2 buffer and listener
     
-        print("a")
         try:
             # Lookup the transform for the AR tag
             transform = self.tfBuffer.lookup_transform("usb_cam", "ar_marker_3", rospy.Time(0))
-            print("hi")
             # Extract the z-coordinate (height)
             table_height = transform.transform.translation.z
             
@@ -132,19 +130,22 @@ class ObjectDetector:
 
         # Create point in camera frame
         ball_in_camera_frame = PoseStamped()
-        ball_in_camera_frame.header.frame_id = "usb_cam"
         ball_in_camera_frame.pose.position.x = X_camera
         ball_in_camera_frame.pose.position.y = Y_camera
         ball_in_camera_frame.pose.position.z = Z_camera
 
-        # try:
-        #     # Transform to world frame
-        #     ball_in_world_frame = tf_buffer.transform(ball_in_camera_frame, "base", rospy.Duration(1.0))
-        #     return ball_in_world_frame.point.x, ball_in_world_frame.point.y, ball_in_world_frame.point.z
+        try:
+            # Transform to world frame
+            ball_in_world_frame = self.tfBuffer.transform(ball_in_camera_frame, "base", rospy.Duration(1.0))
+            ball_in_base_frame = PoseStamped()
+            ball_in_base_frame.pose.position.x = ball_in_world_frame.pose.position.x
+            ball_in_base_frame.pose.position.y = ball_in_world_frame.pose.position.y
+            ball_in_base_frame.pose.position.z = ball_in_world_frame.pose.position.z
+            return ball_in_base_frame
 
-        # except tf2_ros.TransformException as ex:
-        #     rospy.logerr(f"Transform failed: {ex}")
-        #     return None
+        except tf2_ros.TransformException as ex:
+            rospy.logerr(f"Transform failed: {ex}")
+            return None
 
         return ball_in_camera_frame
 
