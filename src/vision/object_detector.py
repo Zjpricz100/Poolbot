@@ -25,8 +25,6 @@ class ObjectDetector:
 
         self.cv_color_image = None
 
-        self.color_image_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.color_image_callback)
-
         self.fx = None
         self.fy = None
         self.cx = None
@@ -34,7 +32,6 @@ class ObjectDetector:
 
         self.camera_info_sub = rospy.Subscriber("/usb_cam/camera_info", CameraInfo, self.camera_info_callback)
 
-        #self.tf_listener = tf.TransformListener()  # Create a TransformListener object
         self.tfBuffer = tf2_ros.Buffer()
         self.tfListener = tf2_ros.TransformListener(self.tfBuffer)
         rospy.sleep(2)
@@ -44,16 +41,18 @@ class ObjectDetector:
 
         self.message_type = PoseStamped
         self.pubs = {
-            "white" : rospy.Publisher("white_ball", self.message_type, queue_size=10),
-            "yellow" : rospy.Publisher("yellow_ball", self.message_type, queue_size=10),
-            "blue" : rospy.Publisher("blue_ball", self.message_type, queue_size=10),
-            "red" : rospy.Publisher("red_ball", self.message_type, queue_size=10),
-            "purple" : rospy.Publisher("purple_ball", self.message_type, queue_size=10),
-            "orange" : rospy.Publisher("orange_ball", self.message_type, queue_size=10),
-            "maroon" : rospy.Publisher("maroon_ball", self.message_type, queue_size=10),
-            "black" : rospy.Publisher("black_ball", self.message_type, queue_size=10),
-            "green" : rospy.Publisher("green_ball", self.message_type, queue_size=10)
+            "white" : rospy.Publisher("ball/white", self.message_type, queue_size=10),
+            "yellow" : rospy.Publisher("ball/yellow", self.message_type, queue_size=10),
+            "blue" : rospy.Publisher("ball/blue", self.message_type, queue_size=10),
+            "red" : rospy.Publisher("ball/red", self.message_type, queue_size=10),
+            "purple" : rospy.Publisher("ball/purple", self.message_type, queue_size=10),
+            "orange" : rospy.Publisher("ball/orange", self.message_type, queue_size=10),
+            "maroon" : rospy.Publisher("ball/maroon", self.message_type, queue_size=10),
+            "black" : rospy.Publisher("ball/black", self.message_type, queue_size=10),
+            "green" : rospy.Publisher("ball/green", self.message_type, queue_size=10)
         }
+        self.color_image_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.color_image_callback)
+
         rospy.spin()
 
     def camera_info_callback(self, msg):
