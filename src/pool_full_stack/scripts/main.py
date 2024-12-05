@@ -306,7 +306,7 @@ def setup_game(limb, kin, ik_solver, args):
 
 
 def moveToBall(ball_position, limb, kin, ik_solver, args):
-    return 'fun'
+    return None
     
 
     
