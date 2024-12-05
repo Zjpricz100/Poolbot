@@ -12,15 +12,15 @@ class ObjectDetector:
     def __init__(self):
         self.cv_color_image = None
         self.ball_numbers = {
-        'cue': (np.array([0, 0, 110]), np.array([80, 102, 255])),
-        'yellow': (np.array([26, 237, 122]), np.array([63, 255, 255])),
-        'blue': (np.array([78, 103, 28]), np.array([119, 216, 121])),
-        'red': (np.array([0, 220, 113]), np.array([9, 248, 231])),
-        'purple': (np.array([115, 0, 0]), np.array([175, 222, 99])),
-        'orange': (np.array([0, 246, 100]), np.array([25, 255, 255])),
-        'maroon': (np.array([4, 120, 31]), np.array([13, 237, 180])),
-        'black': (np.array([0, 0, 30]), np.array([179, 255, 54])),
-        'green': (np.array([31, 102, 0]), np.array([105, 255, 123])),
+        # 'cue': (np.array([0, 0, 110]), np.array([80, 102, 255])),
+        # 'yellow': (np.array([26, 237, 122]), np.array([63, 255, 255])),
+        # 'blue': (np.array([78, 103, 28]), np.array([119, 216, 121])),
+        # 'red': (np.array([0, 220, 113]), np.array([9, 248, 231])),
+        # 'purple': (np.array([115, 0, 0]), np.array([175, 222, 99])),
+        # 'orange': (np.array([0, 246, 100]), np.array([25, 255, 255])),
+        # 'maroon': (np.array([4, 120, 31]), np.array([13, 237, 180])),
+        # 'black': (np.array([0, 0, 30]), np.array([179, 255, 54])),
+        # 'green': (np.array([31, 102, 0]), np.array([105, 255, 123])),
         'ball': (np.array([0, 0, 0]), np.array([255, 255, 255]))
     }
 
@@ -48,123 +48,93 @@ class ObjectDetector:
             if not ret:
                 break
             self.cv_color_image = frame
-            self.detect_balls(frame)
+            ball_dict = self.detect_balls(frame)
+            print(ball_dict)
     
     def detect_balls(self, frame):
-        # Convert frame to HSV
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        
-        # Loop through all color ranges in the dictionary
-        for color_name, (lower_hsv, upper_hsv) in self.ball_numbers.items():
-            # Create mask for the specific color range
-            mask = cv2.inRange(hsv, lower_hsv, upper_hsv)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-            # Mask the frame to isolate the color
-            masked_frame = cv2.bitwise_and(frame, frame, mask=mask)
+        # Apply GaussianBlur to reduce noise and improve circle detection
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
 
-            # Convert the masked image to grayscale
-            gray_frame = cv2.cvtColor(masked_frame, cv2.COLOR_BGR2GRAY)
+        # Detect circles using HoughCircles
+        circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, dp=1.3, minDist=30,
+                                    param1=100, param2=30, minRadius=25, maxRadius=35)
 
-            # Apply Gaussian blur to reduce noise and improve circle detection
-            blurred_frame = cv2.GaussianBlur(gray_frame, (25, 25), 0)
-            edges = cv2.Canny(blurred_frame, 50, 150)
-            # Use HoughCircles to detect circles in the blurred grayscale image
-            circles = cv2.HoughCircles(edges, cv2.HOUGH_GRADIENT, dp=1.5, minDist=20,
-                            param1=200, param2=35, minRadius=15, maxRadius=60)
+        # If some circles are detected
+        if circles is not None:
+            # Round the circle values and convert to integer
+            circles = np.round(circles[0, :]).astype("int")
 
-            # If circles are detected, draw them
-            if circles is not None:
-                circles = np.round(circles[0, :]).astype("int")
-                for (x, y, r) in circles:
-                    # Draw the outer circle
-                    cv2.circle(frame, (x, y), r, (0, 255, 0), 4)
-                    # Draw the center of the circle
-                    cv2.circle(frame, (x, y), 2, (0, 0, 255), 3)
-                    # Add label for the color of the ball
-                    cv2.putText(frame, color_name, (x - r, y - r - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            # Define HSV ranges for target colors
+            color_ranges = {
+                "white": ([0, 0, 200], [180, 30, 255]),
+                "yellow": ([20, 100, 100], [30, 255, 255]),
+                "blue": ([70, 0, 50], [120, 255, 255]),
+                "red": ([0, 0, 0], [5, 255, 255]),
+                "purple": ([110, 0, 0], [179, 255, 255]),
+                "orange": ([10, 100, 0], [20, 255, 255]),
+                "maroon": ([0, 100, 0], [18, 240, 255]),
+                "black": ([0, 0, 0], [180, 255, 50]),
+                "green": ([40, 100, 100], [80, 255, 255]),
+            }
+            ball_dict = {}
 
-        # Display the final image with detected balls
-        cv2.imshow("Ball Detection", frame)
-        cv2.waitKey(1)
+            # Loop through the circles and process each one
+            for (x, y, r) in circles:
+                # Draw the circle in green
+                cv2.circle(frame, (x, y), r, (0, 255, 0), 4)
+                # Draw the center of the circle in red
+                cv2.circle(frame, (x, y), 2, (0, 0, 255), 3)
 
-    def process_images(self):
-        # Convert the color image to HSV color space
-        hsv = cv2.cvtColor(self.cv_color_image, cv2.COLOR_BGR2HSV)
+                # Define bounding box for ROI
+                top_left_x = max(x - r, 0)
+                top_left_y = max(y - r, 0)
+                bottom_right_x = min(x + r, frame.shape[1])
+                bottom_right_y = min(y + r, frame.shape[0])
 
-        # Define color ranges for different balls
-        ball_numbers = {
-            'cue' : (np.array([0, 0, 110]), np.array([80, 102, 255])),
-            'yellow' : (np.array([26, 237, 122]), np.array([63, 255, 255])),
-            'blue' : (np.array([78, 103, 28]), np.array([119, 216, 121])),
-            'red' : (np.array([0, 220, 113]), np.array([9, 248, 231])),
-            'purple' : (np.array([115, 0, 0]), np.array([175, 222, 99])),
-            'orange' : (np.array([0, 246, 100]), np.array([25, 255, 255])),
-            'maroon' : (np.array([4, 120, 31]), np.array([13, 237, 180])),
-            'black' : (np.array([0, 0, 30]), np.array([179, 255, 54])),
-            'green' : (np.array([31, 102, 0]), np.array([105, 255, 123]))
-        }
+                # Extract the region of interest (ROI)
+                roi = frame[top_left_y:bottom_right_y, top_left_x:bottom_right_x]
 
-        # Create a copy of the original image for drawing
-        display_image = self.cv_color_image.copy()
+                if roi.size > 0:
+                    # Convert ROI to HSV
+                    hsv_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
 
-        # Process each ball color
-        for color_name, (lower_hsv, upper_hsv) in ball_numbers.items():
-            # Create mask for this color
-            mask = cv2.inRange(hsv, lower_hsv, upper_hsv)
-            
-            # Find contours
-            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            
-            # Initialize a list to store circularity and contour information
-            ball_candidates = []
+                    # Find the closest matching color
+                    max_percentage = 0
+                    detected_color = "unknown"
 
-            # Process each contour
-            for contour in contours:
-                # Filter by area to remove very small or very large objects
-                if 100 < cv2.contourArea(contour) < 5000:
-                    # Calculate contour perimeter and area
-                    perimeter = cv2.arcLength(contour, True)
-                    area = cv2.contourArea(contour)
-                    
-                    # Compute circularity
-                    if perimeter > 0:
-                        circularity = 4 * np.pi * area / (perimeter ** 2)
-                        
-                        # Check if object is sufficiently circular (close to 1)
-                        if circularity > 0.6:
-                            # Additional shape verification using minimum enclosing circle
-                            (x, y), radius = cv2.minEnclosingCircle(contour)
-                            
-                            # Verify the object is roughly circular
-                            if radius > 0.5:  # Minimum ball size
-                                ball_candidates.append((color_name, circularity, contour))
+                    for color, (lower_hsv, upper_hsv) in color_ranges.items():
+                        lower_hsv = np.array(lower_hsv, dtype="uint8")
+                        upper_hsv = np.array(upper_hsv, dtype="uint8")
+                        mask = cv2.inRange(hsv_roi, lower_hsv, upper_hsv)
 
-            # Sort the candidates by circularity and select the two most circular ones
-            ball_candidates = sorted(ball_candidates, key=lambda x: x[1], reverse=True)[:2]
+                        # Calculate the percentage of the ROI matching this color
+                        color_percentage = np.sum(mask) / mask.size
 
-            # Draw and label the most circular balls
-            for candidate in ball_candidates:
-                color_name, circularity, contour = candidate
-                (x, y), radius = cv2.minEnclosingCircle(contour)
-                center_x = int(x)
-                center_y = int(y)
-                
-                # Draw the contour and label the ball
-                cv2.drawContours(display_image, [contour], 0, (0, 255, 0), 2)
-                cv2.putText(
-                    display_image, 
-                    f"{color_name} Ball (Circularity: {circularity:.2f})", 
-                    (center_x, center_y), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 
-                    0.5, 
-                    (255, 0, 0), 
-                    2
-                )
+                        if color_percentage > max_percentage:
+                            max_percentage = color_percentage
+                            detected_color = color
 
-        # Display the image with detected balls
-        cv2.imshow('Detected Balls', display_image)
-        cv2.waitKey(1)
+                    # If a color is detected, display it on the frame
+                    if max_percentage > 0.1:  # Threshold to avoid noise
+                        #print(f"{detected_color.capitalize()} ball detected at ({x}, {y}) with radius {r}")
+                        cv2.putText(
+                            frame,
+                            detected_color,
+                            (x, y - r - 10),  # Position above the circle
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.5,
+                            (255, 0, 0),
+                            2
+                        )
+                        ball_dict[detected_color] = (x, y) # populate ball dict with (x, y) values
+            cv2.imshow("Circle Detection", frame)
+            cv2.waitKey(1)
+            return ball_dict
+
+        # Display the output frame with circles drawn
+
 
 if __name__ == '__main__':
     detector = ObjectDetector()
