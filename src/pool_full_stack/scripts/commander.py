@@ -1,18 +1,15 @@
-
 import sys
 import argparse
 import numpy as np
 import rospkg
 import roslaunch
 
-from geometry_msgs.msg import PoseStamped
-
 from paths.trajectories import LinearTrajectory
-
+from paths.paths import MotionPath
 from paths.path_planner import PathPlanner
 from controllers.controllers import ( 
     PIDJointVelocityController, 
-    FeedforwardJointVelocityController
+    FeedforwardJointVelocityController,
 )
 from utils.utils import *
 
@@ -32,9 +29,11 @@ class Commander:
     def __init__(self, limb, kin, tip_name):
         self.limb = limb
         self.kin = kin
+        self.tip_name = tip_name
         self.tfBuffer = tf2_ros.Buffer()
         self.tfListener = tf2_ros.TransformListener(self.tfBuffer)
-        self.ik_solver = IK("base", tip_name)
+        self.ik_solver = IK("base", "right_hand")
+        
         
         # For visualizing trajectories
         self.pub = rospy.Publisher('move_group/display_planned_path', DisplayTrajectory, queue_size=10)
@@ -43,7 +42,7 @@ class Commander:
         # For Moveit!
         self.planner = PathPlanner('right_arm')
 
-    def get_current_position_and_orientation(self):
+    def get_current_position_and_orientation(self, source = "base", target = "right_hand"):
         """
         Get the current end-effector position and orientation of the robot, 
         returning them as a PoseStamped message.
@@ -56,14 +55,14 @@ class Commander:
         """
         try:
             # Look up the transform from base to right_hand
-            trans = self.tfBuffer.lookup_transform('base', 'pole', rospy.Time(0), rospy.Duration(10.0))
+            trans = self.tfBuffer.lookup_transform(source, target, rospy.Time(0), rospy.Duration(10.0))
             
             # Create PoseStamped message
             pose_stamped = PoseStamped()
             
             # Set the header with the frame of reference and timestamp
             pose_stamped.header.stamp = rospy.Time.now()  # Set the current timestamp
-            pose_stamped.header.frame_id = 'base'  # Frame of reference
+            pose_stamped.header.frame_id = source  # Frame of reference
             
             # Set the position (Point)
             pose_stamped.pose.position.x = trans.transform.translation.x
@@ -77,6 +76,8 @@ class Commander:
             pose_stamped.pose.orientation.w = trans.transform.rotation.w
             
             return pose_stamped
+
+    
         
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
             rospy.logerr(f"Failed to get current position and orientation: {e}")
@@ -185,12 +186,23 @@ class Commander:
         self.pub.publish(self.disp_traj)
 
     def move_to_ball(self, ball_color):
-        rospy.init_node('single_ball_sub', anonymous = True)
+        #rospy.init_node('single_ball_sub', anonymous = True)
         ball_pose = rospy.wait_for_message(f"ball/{ball_color}", PoseStamped)
         print(ball_pose)
+        new_ball_pose = self.tfBuffer.transform(ball_pose, "pole", rospy.Duration(1.0))
+
+        curr_pos = self.get_current_position_and_orientation()
+        #print(curr_pos)
+        new_ball_pose.pose.orientation = curr_pos.pose.orientation
+        new_ball_pose.pose.position.z += 0.1
+        #curr_pos.pose.position.z -= 0.6
+        plan = self.planner.plan_to_pose(new_ball_pose)
+        plan = self.planner.retime_trajectory(plan, 0.3)
+        self.planner.execute_plan(plan[1])
 
 if __name__ == "__main__":
+    rospy.init_node('testing_node')
     limb = intera_interface.Limb("right")
     kin = sawyer_kinematics("right")
     commander = Commander(limb, kin, "pole")
-    commander.move_to_ball("blue")
+    commander.move_to_ball("purple")
