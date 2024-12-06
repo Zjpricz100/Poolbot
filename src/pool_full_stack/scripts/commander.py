@@ -5,10 +5,10 @@ import numpy as np
 import rospkg
 import roslaunch
 
-from geometry_msgs import PoseStamped
+from geometry_msgs.msg import PoseStamped
 
 from paths.trajectories import LinearTrajectory
-from paths.paths import MotionPath
+
 from paths.path_planner import PathPlanner
 from controllers.controllers import ( 
     PIDJointVelocityController, 
@@ -22,6 +22,8 @@ import rospy
 import tf2_ros
 import intera_interface
 from moveit_msgs.msg import DisplayTrajectory, RobotState
+from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest
+from moveit_commander import MoveGroupCommander
 from sawyer_pykdl import sawyer_kinematics
 
 """Class designed to handle the actuation components of Poolbot"""
@@ -39,7 +41,7 @@ class Commander:
         self.disp_traj = DisplayTrajectory()
 
         # For Moveit!
-        self.planner = PathPlanner('righ_arm')
+        self.planner = PathPlanner('right_arm')
 
     def get_current_position_and_orientation(self):
         """
@@ -54,7 +56,7 @@ class Commander:
         """
         try:
             # Look up the transform from base to right_hand
-            trans = self.tfBuffer.lookup_transform('base', 'right_hand', rospy.Time(0), rospy.Duration(10.0))
+            trans = self.tfBuffer.lookup_transform('base', 'pole', rospy.Time(0), rospy.Duration(10.0))
             
             # Create PoseStamped message
             pose_stamped = PoseStamped()
@@ -182,5 +184,13 @@ class Commander:
         self.disp_traj.trajectory_start = RobotState()
         self.pub.publish(self.disp_traj)
 
-    
+    def move_to_ball(self, ball_color):
+        rospy.init_node('single_ball_sub', anonymous = True)
+        ball_pose = rospy.wait_for_message(f"ball/{ball_color}", PoseStamped)
+        print(ball_pose)
 
+if __name__ == "__main__":
+    limb = intera_interface.Limb("right")
+    kin = sawyer_kinematics("right")
+    commander = Commander(limb, kin, "pole")
+    commander.move_to_ball("blue")
