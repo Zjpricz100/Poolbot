@@ -133,6 +133,7 @@ class ObjectDetector:
         ball_in_camera_frame.pose.position.y = Y_camera
         ball_in_camera_frame.pose.position.z = Z_camera
 
+        #print(type(ball_in_camera_frame))
         ball_in_world_frame = self.tfBuffer.transform(ball_in_camera_frame, "base", rospy.Duration(1.0))
         ball_in_base_frame = PoseStamped()
         ball_in_base_frame.header.stamp = rospy.get_rostime()

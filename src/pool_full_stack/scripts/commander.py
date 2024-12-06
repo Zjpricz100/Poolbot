@@ -23,6 +23,10 @@ from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest
 from moveit_commander import MoveGroupCommander
 from sawyer_pykdl import sawyer_kinematics
 
+import tf2_geometry_msgs
+from geometry_msgs.msg import Pose, PoseStamped, Quaternion
+import tf.transformations as tft
+
 """Class designed to handle the actuation components of Poolbot"""
 
 class Commander:
@@ -185,24 +189,61 @@ class Commander:
         self.disp_traj.trajectory_start = RobotState()
         self.pub.publish(self.disp_traj)
 
+    def convert_pose(self, source, target):
+        print(type(source))
+        try:
+            # Check if the transform exists and is valid
+            t = self.tfBuffer.transform(source, target, rospy.Duration(1.0))
+        except tf2_ros.TransformException as e:
+            rospy.logerr("Transform failed: %s", e)
+            return None
+        
+        tn = PoseStamped()
+        tn.header.stamp = rospy.get_rostime()
+        tn.header.frame_id = "base"
+        tn.pose.position.x = t.pose.position.x
+        tn.pose.position.y = t.pose.position.y
+        tn.pose.position.z = t.pose.position.z
+        return tn
+
+
     def move_to_ball(self, ball_color):
-        #rospy.init_node('single_ball_sub', anonymous = True)
         ball_pose = rospy.wait_for_message(f"ball/{ball_color}", PoseStamped)
         print(ball_pose)
-        new_ball_pose = self.tfBuffer.transform(ball_pose, "pole", rospy.Duration(1.0))
 
         curr_pos = self.get_current_position_and_orientation()
-        #print(curr_pos)
-        new_ball_pose.pose.orientation = curr_pos.pose.orientation
-        new_ball_pose.pose.position.z += 0.1
-        #curr_pos.pose.position.z -= 0.6
-        plan = self.planner.plan_to_pose(new_ball_pose)
+       
+        
+        curr_orientation = [curr_pos.pose.orientation.x, curr_pos.pose.orientation.y, curr_pos.pose.orientation.z, curr_pos.pose.orientation.w]
+        (roll, pitch, yaw) = tft.euler_from_quaternion(curr_orientation)
+        angle_in_degrees = -10.0
+        angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
+        new_pitch = pitch + angle_in_radians
+
+        angle_in_degrees = -90
+        angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
+        new_yaw = yaw + angle_in_radians
+
+        rotation_quaternion = tft.quaternion_from_euler(roll, new_pitch, new_yaw)  # roll=0, pitch=angle, yaw=0
+
+        rotated_orientation = Quaternion()
+        rotated_orientation.x = rotation_quaternion[0]
+        rotated_orientation.y = rotation_quaternion[1]
+        rotated_orientation.z = rotation_quaternion[2]
+        rotated_orientation.w = rotation_quaternion[3]
+
+        ball_pose.pose.orientation = rotated_orientation
+        ball_pose.pose.position.x -= 0.3
+        ball_pose.pose.position.y -= 0.03
+        ball_pose.pose.position.z += 0.05
+        plan = self.planner.plan_to_pose(ball_pose)
         plan = self.planner.retime_trajectory(plan, 0.3)
         self.planner.execute_plan(plan[1])
+
 
 if __name__ == "__main__":
     rospy.init_node('testing_node')
     limb = intera_interface.Limb("right")
     kin = sawyer_kinematics("right")
     commander = Commander(limb, kin, "pole")
-    commander.move_to_ball("purple")
+    commander.move_to_ball("green")
