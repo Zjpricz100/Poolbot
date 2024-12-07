@@ -206,6 +206,26 @@ class Commander:
         tn.pose.position.z = t.pose.position.z
         return tn
 
+    def get_offset_point(self, ball_pos, curr_orientation):
+        curr_orientation = [curr_orientation.orientation.x, curr_orientation.orientation.y, curr_orientation.orientation.z, curr_orientation.orientation.w]
+        (roll, pitch, yaw) = tft.euler_from_quaternion(curr_orientation)
+        angle_in_degrees = -10.0
+        angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
+        new_pitch = pitch + angle_in_radians
+
+        angle_in_degrees = 0
+        angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
+        new_yaw = yaw + angle_in_radians
+
+        rotation_quaternion = tft.quaternion_from_euler(roll, new_pitch, new_yaw)  # roll=0, pitch=angle, yaw=0
+
+        offset_vector = [0.3, 0.03, 0.1, 1]
+
+        rot_x_y = tft.quaternion_from_euler(roll, new_pitch, 0)  # roll=0, pitch=angle, yaw=0
+        rotated_vector = tft.quaternion_multiply(rot_x_y,offset_vector)
+        print(rotated_vector)
+        return rotation_quaternion, rotated_vector
+        
 
     def move_to_ball(self, ball_color):
         ball_pose = rospy.wait_for_message(f"ball/{ball_color}", PoseStamped)
@@ -213,18 +233,7 @@ class Commander:
 
         curr_pos = self.get_current_position_and_orientation()
        
-        
-        curr_orientation = [curr_pos.pose.orientation.x, curr_pos.pose.orientation.y, curr_pos.pose.orientation.z, curr_pos.pose.orientation.w]
-        (roll, pitch, yaw) = tft.euler_from_quaternion(curr_orientation)
-        angle_in_degrees = -10.0
-        angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
-        new_pitch = pitch + angle_in_radians
-
-        angle_in_degrees = -90
-        angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
-        new_yaw = yaw + angle_in_radians
-
-        rotation_quaternion = tft.quaternion_from_euler(roll, new_pitch, new_yaw)  # roll=0, pitch=angle, yaw=0
+        rotation_quaternion, rotated_vector = self.get_offset_point(ball_pose, curr_pos.pose)
 
         rotated_orientation = Quaternion()
         rotated_orientation.x = rotation_quaternion[0]
@@ -232,10 +241,12 @@ class Commander:
         rotated_orientation.z = rotation_quaternion[2]
         rotated_orientation.w = rotation_quaternion[3]
 
+        #ball_pose.pose.orientation = rotated_orientation
         ball_pose.pose.orientation = rotated_orientation
-        ball_pose.pose.position.x -= 0.3
-        ball_pose.pose.position.y -= 0.03
-        ball_pose.pose.position.z += 0.05
+        ball_pose.pose.position.x += rotated_vector[0]
+        ball_pose.pose.position.y += rotated_vector[1]
+        ball_pose.pose.position.z += 0.1
+        print(ball_pose)
         plan = self.planner.plan_to_pose(ball_pose)
         plan = self.planner.retime_trajectory(plan, 0.3)
         self.planner.execute_plan(plan[1])
@@ -246,4 +257,4 @@ if __name__ == "__main__":
     limb = intera_interface.Limb("right")
     kin = sawyer_kinematics("right")
     commander = Commander(limb, kin, "pole")
-    commander.move_to_ball("green")
+    commander.move_to_ball("purple")
