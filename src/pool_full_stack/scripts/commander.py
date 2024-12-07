@@ -213,16 +213,20 @@ class Commander:
         angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
         new_pitch = pitch + angle_in_radians
 
-        angle_in_degrees = 0
+        angle_in_degrees = -90
         angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
-        new_yaw = yaw + angle_in_radians
+        print(yaw)
+        new_yaw = angle_in_radians
 
-        rotation_quaternion = tft.quaternion_from_euler(roll, new_pitch, new_yaw)  # roll=0, pitch=angle, yaw=0
+        rotation_quaternion = tft.quaternion_from_euler(roll, new_pitch, yaw + new_yaw)  # roll=0, pitch=angle, yaw=0
+        print(new_yaw)
+        r_z = np.array([[np.cos(new_yaw), -np.sin(new_yaw), 0],
+                        [np.sin(new_yaw), np.cos(new_yaw), 0],
+                        [0, 0, 1]])
 
-        offset_vector = [0.3, 0.03, 0.1, 1]
+        offset_vector = [-0.1, -0.01, 0.1]
 
-        rot_x_y = tft.quaternion_from_euler(roll, new_pitch, 0)  # roll=0, pitch=angle, yaw=0
-        rotated_vector = tft.quaternion_multiply(rot_x_y,offset_vector)
+        rotated_vector = r_z @ offset_vector
         print(rotated_vector)
         return rotation_quaternion, rotated_vector
         
@@ -245,7 +249,10 @@ class Commander:
         ball_pose.pose.orientation = rotated_orientation
         ball_pose.pose.position.x += rotated_vector[0]
         ball_pose.pose.position.y += rotated_vector[1]
-        ball_pose.pose.position.z += 0.1
+        ball_pose.pose.position.z += rotated_vector[2]
+        # ball_pose.pose.position.x += -0.1
+        # ball_pose.pose.position.y += -0.01
+        # ball_pose.pose.position.z += 0.1
         print(ball_pose)
         plan = self.planner.plan_to_pose(ball_pose)
         plan = self.planner.retime_trajectory(plan, 0.3)
