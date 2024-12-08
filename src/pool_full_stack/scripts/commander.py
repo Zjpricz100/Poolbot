@@ -209,11 +209,11 @@ class Commander:
     def get_offset_point(self, ball_pos, curr_orientation):
         curr_orientation = [curr_orientation.orientation.x, curr_orientation.orientation.y, curr_orientation.orientation.z, curr_orientation.orientation.w]
         (roll, pitch, yaw) = tft.euler_from_quaternion(curr_orientation)
-        angle_in_degrees = -10.0
+        angle_in_degrees = 0
         angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
         new_pitch = pitch + angle_in_radians
 
-        angle_in_degrees = -90
+        angle_in_degrees = 0
         angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
         print(yaw)
         new_yaw = angle_in_radians
@@ -224,7 +224,7 @@ class Commander:
                         [np.sin(new_yaw), np.cos(new_yaw), 0],
                         [0, 0, 1]])
 
-        offset_vector = [-0.1, -0.01, 0.1]
+        offset_vector = [-0.3, -0.04, 0.05]
 
         rotated_vector = r_z @ offset_vector
         print(rotated_vector)
@@ -264,4 +264,4 @@ if __name__ == "__main__":
     limb = intera_interface.Limb("right")
     kin = sawyer_kinematics("right")
     commander = Commander(limb, kin, "pole")
-    commander.move_to_ball("purple")
+    commander.move_to_ball("green")
