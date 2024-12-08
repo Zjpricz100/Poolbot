@@ -6,6 +6,8 @@ import roslaunch
 
 from paths.trajectories import LinearTrajectory
 from paths.paths import MotionPath
+from visualization_msgs.msg import Marker
+from shape_msgs.msg import SolidPrimitive
 from paths.path_planner import PathPlanner
 from controllers.controllers import ( 
     PIDJointVelocityController, 
@@ -18,9 +20,9 @@ from trac_ik_python.trac_ik import IK
 import rospy
 import tf2_ros
 import intera_interface
-from moveit_msgs.msg import DisplayTrajectory, RobotState
+from moveit_msgs.msg import DisplayTrajectory, RobotState, PositionConstraint, Constraints
 from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest
-from moveit_commander import MoveGroupCommander
+import moveit_commander
 from sawyer_pykdl import sawyer_kinematics
 
 import tf2_geometry_msgs
@@ -41,6 +43,7 @@ class Commander:
         
         # For visualizing trajectories
         self.pub = rospy.Publisher('move_group/display_planned_path', DisplayTrajectory, queue_size=10)
+        self.marker_pub = rospy.Publisher('bounding_box', Marker, queue_size=10)
         self.disp_traj = DisplayTrajectory()
 
         # For Moveit!
@@ -206,6 +209,63 @@ class Commander:
         tn.pose.position.z = t.pose.position.z
         return tn
 
+    def get_workspace_constraints(self, workspace, center):
+        """
+        Sets up constraints for IK solver
+        
+        workspace: [x,y,z] values for defining a bounding box
+        center: Pose representing the center of the bounding box in robots frame (typically the pose of the ball)
+
+        """
+        constraint = PositionConstraint()
+        constraint.link_name = 'right_gripper_tip'
+        constraint.header.frame_id = "base"
+
+        # Set a bounding box for allowed region
+        bounding_box = SolidPrimitive()
+        bounding_box.type = SolidPrimitive.BOX
+        bounding_box.dimensions = workspace
+
+        # Set a pose for center of box
+
+        constraint.constraint_region.primitives.append(bounding_box)
+        constraint.constraint_region.primitive_poses.append(center.pose)
+
+        constraint.weight = 1 # 80% effective
+
+        return constraint
+
+    def create_bounding_box_marker(self, box, pose):
+        """
+        Creates a bounding box marker to visualize in Rviz
+        """
+        marker = Marker()
+        marker.header.frame_id = 'base'
+        marker.header.stamp = rospy.Time.now()
+        marker.type = Marker.CUBE
+        marker.action = Marker.ADD
+
+        marker.pose = pose
+        marker.scale.x = box[0]
+        marker.scale.y = box[1]
+        marker.scale.z = box[2]
+
+        marker.color.r = 0.0
+        marker.color.g = 1.0
+        marker.color.b = 0.0
+        marker.color.a = 0.5
+
+        marker.lifetime = rospy.Duration(0)
+
+        # Publish marker
+        self.marker_pub.publish(marker)
+
+
+        
+
+        
+
+
     def get_offset_point(self, ball_pos, curr_orientation):
         curr_orientation = [curr_orientation.orientation.x, curr_orientation.orientation.y, curr_orientation.orientation.z, curr_orientation.orientation.w]
         (roll, pitch, yaw) = tft.euler_from_quaternion(curr_orientation)
@@ -213,7 +273,7 @@ class Commander:
         angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
         new_pitch = pitch + angle_in_radians
 
-        angle_in_degrees = 0
+        angle_in_degrees = 90
         angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
         print(yaw)
         new_yaw = angle_in_radians
@@ -224,7 +284,7 @@ class Commander:
                         [np.sin(new_yaw), np.cos(new_yaw), 0],
                         [0, 0, 1]])
 
-        offset_vector = [-0.3, -0.04, 0.05]
+        offset_vector = [-0.3, -0.0, 0.05]
 
         rotated_vector = r_z @ offset_vector
         print(rotated_vector)
@@ -254,14 +314,41 @@ class Commander:
         # ball_pose.pose.position.y += -0.01
         # ball_pose.pose.position.z += 0.1
         print(ball_pose)
+
+        # Setting up constraints for IK
+
+        '''
+        DONT DELETE: I JUST NEED TO TEST IT MORE
+        constraints = Constraints()
+
+
+        pos_constraint = self.get_workspace_constraints([1, 1, 1], ball_pose)
+        constraints.position_constraints.append(pos_constraint)
+        self.planner._group.set_path_constraints(constraints)
+        '''
+
         plan = self.planner.plan_to_pose(ball_pose)
         plan = self.planner.retime_trajectory(plan, 0.3)
+
+
+
+        self.publish_trajectory(plan[1]) # Visualize trajectory in Rviz
+        
+        try:
+            input('Press <Enter> to execute the trajectory using YOUR OWN controller')
+        except KeyboardInterrupt:
+            sys.exit()
         self.planner.execute_plan(plan[1])
 
 
 if __name__ == "__main__":
+    
     rospy.init_node('testing_node')
     limb = intera_interface.Limb("right")
     kin = sawyer_kinematics("right")
     commander = Commander(limb, kin, "pole")
+
+    #center = PoseStamped()
+    #center.pose.position.z = -0.20
+    #commander.create_bounding_box_marker([0.5, 0.5, 0.5], center.pose)
     commander.move_to_ball("green")
