@@ -2,52 +2,89 @@ import rospy
 import tf2_ros
 import numpy as np
 from geometry_msgs.msg import TransformStamped
-from tf_transformations import quaternion_matrix, quaternion_from_matrix
+
+
+def quaternion_to_matrix(q):
+    """Convert a quaternion into a 4x4 transformation matrix."""
+    x, y, z, w = q
+    matrix = np.array([
+        [1 - 2 * y**2 - 2 * z**2, 2 * x * y - 2 * z * w, 2 * x * z + 2 * y * w, 0],
+        [2 * x * y + 2 * z * w, 1 - 2 * x**2 - 2 * z**2, 2 * y * z - 2 * x * w, 0],
+        [2 * x * z - 2 * y * w, 2 * y * z + 2 * x * w, 1 - 2 * x**2 - 2 * y**2, 0],
+        [0, 0, 0, 1]
+    ])
+    return matrix
 
 
 def transform_to_matrix(transform):
-    """Convert TransformStamped to a 4x4 transformation matrix."""
+    """Convert Transform to a 4x4 transformation matrix."""
     q = [transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w]
     t = [transform.translation.x, transform.translation.y, transform.translation.z]
-    matrix = quaternion_matrix(q)
+    matrix = quaternion_to_matrix(q)
     matrix[:3, 3] = t
     return matrix
 
 
 def matrix_to_transform(matrix):
-    """Convert 4x4 transformation matrix to TransformStamped."""
-    q = quaternion_from_matrix(matrix)
+    """Convert a 4x4 transformation matrix back to a TransformStamped."""
+    # Extract translation
     t = matrix[:3, 3]
+    # Compute quaternion
+    m = matrix[:3, :3]
+    trace = np.trace(m)
+    if trace > 0:
+        s = 0.5 / np.sqrt(trace + 1.0)
+        w = 0.25 / s
+        x = (m[2, 1] - m[1, 2]) * s
+        y = (m[0, 2] - m[2, 0]) * s
+        z = (m[1, 0] - m[0, 1]) * s
+    else:
+        if m[0, 0] > m[1, 1] and m[0, 0] > m[2, 2]:
+            s = 2.0 * np.sqrt(1.0 + m[0, 0] - m[1, 1] - m[2, 2])
+            w = (m[2, 1] - m[1, 2]) / s
+            x = 0.25 * s
+            y = (m[0, 1] + m[1, 0]) / s
+            z = (m[0, 2] + m[2, 0]) / s
+        elif m[1, 1] > m[2, 2]:
+            s = 2.0 * np.sqrt(1.0 + m[1, 1] - m[0, 0] - m[2, 2])
+            w = (m[0, 2] - m[2, 0]) / s
+            x = (m[0, 1] + m[1, 0]) / s
+            y = 0.25 * s
+            z = (m[1, 2] + m[2, 1]) / s
+        else:
+            s = 2.0 * np.sqrt(1.0 + m[2, 2] - m[0, 0] - m[1, 1])
+            w = (m[1, 0] - m[0, 1]) / s
+            x = (m[0, 2] + m[2, 0]) / s
+            y = (m[1, 2] + m[2, 1]) / s
+            z = 0.25 * s
+
+    # Build TransformStamped
     transform = TransformStamped()
     transform.transform.translation.x = t[0]
     transform.transform.translation.y = t[1]
     transform.transform.translation.z = t[2]
-    transform.transform.rotation.x = q[0]
-    transform.transform.rotation.y = q[1]
-    transform.transform.rotation.z = q[2]
-    transform.transform.rotation.w = q[3]
+    transform.transform.rotation.x = x
+    transform.transform.rotation.y = y
+    transform.transform.rotation.z = z
+    transform.transform.rotation.w = w
     return transform
 
 
 def compute_base_to_usb(tf_buffer, tf_broadcaster):
     try:
-        # Lookup transforms for AR marker relative to each camera
-        transform_usb_to_ar = tf_buffer.lookup_transform("usb_cam", "ar_marker_3", rospy.Time(0))
-        transform_head_to_ar = tf_buffer.lookup_transform("head_camera", "ar_marker_3", rospy.Time(0))
+        # Lookup transforms
+        usb_to_ar = tf_buffer.lookup_transform("usb_cam", "ar_marker_3", rospy.Time(0))
+        head_to_ar = tf_buffer.lookup_transform("head_camera", "ar_marker_3", rospy.Time(0))
+        base_to_head = tf_buffer.lookup_transform("base", "head_cam", rospy.Time(0))
 
-        # Convert transforms to matrices
-        T_usb_to_ar = transform_to_matrix(transform_usb_to_ar.transform)
-        T_head_to_ar = transform_to_matrix(transform_head_to_ar.transform)
-
-        # Compute ar_marker to usb_cam
-        T_ar_to_usb = np.linalg.inv(T_usb_to_ar)
+        # Convert to matrices
+        T_usb_to_ar = transform_to_matrix(usb_to_ar.transform)
+        T_head_to_ar = transform_to_matrix(head_to_ar.transform)
+        T_base_to_head = transform_to_matrix(base_to_head.transform)
 
         # Compute head_cam to usb_cam
+        T_ar_to_usb = np.linalg.inv(T_usb_to_ar)
         T_head_to_usb = np.dot(T_head_to_ar, T_ar_to_usb)
-
-        # Lookup transform from base to head_cam
-        base_to_head = tf_buffer.lookup_transform("base", "head_cam", rospy.Time(0))
-        T_base_to_head = transform_to_matrix(base_to_head.transform)
 
         # Compute base to usb_cam
         T_base_to_usb = np.dot(T_base_to_head, T_head_to_usb)
