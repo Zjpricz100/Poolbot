@@ -225,6 +225,42 @@ class ObjectDetector:
             cv2.waitKey(1)
             return ball_dict
 
+    import tf2_ros
+import tf2_geometry_msgs
+import rospy
+import numpy as np
+
+def compute_camera_transform():
+    # Initialize node
+    rospy.init_node('camera_transform_computer')
+
+    # TF listener
+    tf_buffer = tf2_ros.Buffer()
+    listener = tf2_ros.TransformListener(tf_buffer)
+
+    try:
+        # Get transformations from cameras to AR tag
+        tf_camera1_to_tag = tf_buffer.lookup_transform('camera_1_frame', 'ar_tag_frame', rospy.Time(0), rospy.Duration(1.0))
+        tf_camera2_to_tag = tf_buffer.lookup_transform('camera_2_frame', 'ar_tag_frame', rospy.Time(0), rospy.Duration(1.0))
+        
+        # Convert to matrices
+        T_camera1_to_tag = tf2_geometry_msgs.transform_to_matrix(tf_camera1_to_tag)
+        T_camera2_to_tag = tf2_geometry_msgs.transform_to_matrix(tf_camera2_to_tag)
+
+        # Compute T_camera1_to_camera2
+        T_camera2_to_tag_inv = np.linalg.inv(T_camera2_to_tag)
+        T_camera1_to_camera2 = np.dot(T_camera1_to_tag, T_camera2_to_tag_inv)
+
+        print("Transformation from Camera 1 to Camera 2:")
+        print(T_camera1_to_camera2)
+
+    except tf2_ros.LookupException as e:
+        rospy.logerr(f"Transform lookup failed: {e}")
+
+if __name__ == '__main__':
+    compute_camera_transform()
+
+
 if __name__ == '__main__':
     w = ObjectDetector()
     #w.get_table_height()
