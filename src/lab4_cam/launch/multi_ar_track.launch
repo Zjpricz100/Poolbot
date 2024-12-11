@@ -3,6 +3,7 @@
     <node name="ar_track_usb" pkg="ar_track_alvar" type="individualMarkers" output="screen" ns="usb_cam">
         <param name="camera_frame" value="usb_cam_optical_frame"/>
         <param name="marker_size" value="4.5"/> <!-- Marker size in meters -->
+        <param name="output_frame" value="base_link"/> <!-- Anchor AR markers to base_link -->
         <remap from="camera_image" to="/usb_cam/image_raw"/>
         <remap from="camera_info" to="/usb_cam/camera_info"/>
     </node>
@@ -11,6 +12,7 @@
     <node name="ar_track_head" pkg="ar_track_alvar" type="individualMarkers" output="screen" ns="head_cam">
         <param name="camera_frame" value="head_cam_optical_frame"/>
         <param name="marker_size" value="4.5"/> <!-- Marker size in meters -->
+        <param name="output_frame" value="base_link"/> <!-- Anchor AR markers to base_link -->
         <remap from="camera_image" to="/head_cam/image_raw"/>
         <remap from="camera_info" to="/head_cam/camera_info"/>
     </node>
