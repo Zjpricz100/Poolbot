@@ -1,21 +1,17 @@
 <launch>
     <!-- Instance 1: USB Camera -->
-    <node name="ar_track_usb" pkg="ar_track_alvar" type="individualMarkers" output="screen">
+    <node name="ar_track_usb" pkg="ar_track_alvar" type="individualMarkers" output="screen" ns="usb_cam">
         <param name="camera_frame" value="usb_cam_optical_frame"/>
         <param name="marker_size" value="4.5"/> <!-- Marker size in meters -->
-        <param name="max_frequency" value="10.0"/> <!-- Max processing frequency -->
         <remap from="camera_image" to="/usb_cam/image_raw"/>
         <remap from="camera_info" to="/usb_cam/camera_info"/>
-        <remap from="ar_pose_marker" to="/usb_cam/ar_pose_marker"/>
     </node>
 
     <!-- Instance 2: Head Camera -->
-    <node name="ar_track_head" pkg="ar_track_alvar" type="individualMarkers" output="screen">
+    <node name="ar_track_head" pkg="ar_track_alvar" type="individualMarkers" output="screen" ns="head_cam">
         <param name="camera_frame" value="head_cam_optical_frame"/>
         <param name="marker_size" value="4.5"/> <!-- Marker size in meters -->
-        <param name="max_frequency" value="10.0"/> <!-- Max processing frequency -->
-        <remap from="camera_image" to="/io/internal_camera/head_camera/image_raw"/>
-        <remap from="camera_info" to="/io/internal_camera/head_camera/camera_info"/>
-        <remap from="ar_pose_marker" to="/head_cam/ar_pose_marker"/>
+        <remap from="camera_image" to="/head_cam/image_raw"/>
+        <remap from="camera_info" to="/head_cam/camera_info"/>
     </node>
 </launch>
