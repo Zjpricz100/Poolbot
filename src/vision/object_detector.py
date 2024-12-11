@@ -11,9 +11,10 @@ import os
 import time
 import tf2_ros
 import tf2_geometry_msgs
-from geometry_msgs.msg import Point, PoseStamped
+from geometry_msgs.msg import Point, PoseStamped, TransformStamped
 from std_msgs.msg import Header
 from table_log import TableLog
+from tf_transformations import quaternion_matrix, quaternion_from_matrix
 
 
 PLOTS_DIR = os.path.join(os.getcwd(), 'plots')
@@ -31,8 +32,9 @@ class ObjectDetector:
         self.cx = None
         self.cy = None
 
-        self.camera_info_sub = rospy.Subscriber("/usb_cam/camera_info", CameraInfo, self.camera_info_callback)
-
+        self.usb_camera_info_sub = rospy.Subscriber("/usb_cam/camera_info", CameraInfo, self.usb_camera_info_callback)
+        self.head_camera_info_sub = rospy.Subscriber("/io/internal_camera/head_camera/camera_info", CameraInfo, self.head_camera_info_callback)
+        
         self.tfBuffer = tf2_ros.Buffer()
         self.tfListener = tf2_ros.TransformListener(self.tfBuffer)
         rospy.sleep(2)
@@ -56,13 +58,52 @@ class ObjectDetector:
 
         rospy.spin()
 
-    def camera_info_callback(self, msg):
+    def usb_camera_info_callback(self, msg):
         # Extract the intrinsic parameters from the CameraInfo message
-        self.fx = msg.K[0]
-        self.fy = msg.K[4]
-        self.cx = msg.K[2]
-        self.cy = msg.K[5]
+        self.fx_usb = msg.K[0]
+        self.fy_usb = msg.K[4]
+        self.cx_usb = msg.K[2]
+        self.cy_usb = msg.K[5]
 
+    def head_camera_info_callback(self, msg):
+        # Extract the intrinsic parameters from the CameraInfo message
+        self.fx_head = msg.K[0]
+        self.fy_head = msg.K[4]
+        self.cx_head = msg.K[2]
+        self.cy_head = msg.K[5]
+
+    def pose_to_matrix(self, pose):
+        """Convert PoseStamped to a 4x4 transformation matrix."""
+        q = [pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w]
+        t = [pose.position.x, pose.position.y, pose.position.z]
+        matrix = quaternion_matrix(q)
+        matrix[:3, 3] = t
+        return matrix
+
+    def matrix_to_transform(self, matrix):
+        """Convert 4x4 transformation matrix to TransformStamped."""
+        q = quaternion_from_matrix(matrix)
+        t = matrix[:3, 3]
+        transform = TransformStamped()
+        transform.transform.translation.x = t[0]
+        transform.transform.translation.y = t[1]
+        transform.transform.translation.z = t[2]
+        transform.transform.rotation.x = q[0]
+        transform.transform.rotation.y = q[1]
+        transform.transform.rotation.z = q[2]
+        transform.transform.rotation.w = q[3]
+        return transform
+
+    def get_usb_cam_transform(self, tf1, tf2): #tf1 from head cam, tf2 from usb_cam
+        T_usb_to_ar = self.pose_to_matrix(tf2.pose)
+        T_head_to_ar = self.pose_to_matrix(tf1.pose)
+
+        T_ar_to_usb = np.linalg.inv(T_usb_to_ar)
+        T_head_to_usb = np.dot(T_head_to_ar, T_ar_to_usb)
+
+        base_to_head = self.tf_buffer.lookup_transform('base', 'head_cam', rospy.Time(0))
+        T_base_to_head = self.pose_to_matrix(base_to_head.transform)
+        T_base_to_usb = np.dot(T_base_to_head, T_head_to_usb)
 
     def color_image_callback(self, msg):
 
