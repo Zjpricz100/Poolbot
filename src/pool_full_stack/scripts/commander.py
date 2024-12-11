@@ -273,7 +273,7 @@ class Commander:
         angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
         new_pitch = pitch + angle_in_radians
 
-        angle_in_degrees = 90
+        angle_in_degrees = 0
         angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
         print(yaw)
         new_yaw = angle_in_radians
@@ -284,7 +284,8 @@ class Commander:
                         [np.sin(new_yaw), np.cos(new_yaw), 0],
                         [0, 0, 1]])
 
-        offset_vector = [-0.3, -0.0, 0.05]
+        #offset_vector = [-0.3, -0.0, 0.05]
+        offset_vector = [0, 0, 0]
 
         rotated_vector = r_z @ offset_vector
         print(rotated_vector)
@@ -351,4 +352,4 @@ if __name__ == "__main__":
     #center = PoseStamped()
     #center.pose.position.z = -0.20
     #commander.create_bounding_box_marker([0.5, 0.5, 0.5], center.pose)
-    commander.move_to_ball("green")
+    commander.move_to_ball("purple")

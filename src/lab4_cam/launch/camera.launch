@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
 <launch>
-	<node pkg = "tf" type = "static_transform_publisher" name = "camera_tf_pub" args="-0.025 -0.04 0.04 0 0 -0.7071 0.7071 right_gripper_r_finger usb_cam 100" />
+	<node pkg = "tf" type = "static_transform_publisher" name = "camera_tf_pub" args="0 -0.09 0.08 0 0 -0.7071 0.7071 ar_marker_5 usb_cam 100" />
 	<node pkg = "tf" type = "static_transform_publisher" name = "pole_tf_pub" args="-0.2 0 0.02 0 0 0 1 right_gripper_r_finger pole 100" />
 </launch>
