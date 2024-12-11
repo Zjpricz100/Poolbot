@@ -4,6 +4,12 @@ from PIL import Image, ImageTk
 import cv2
 import numpy as np
 
+###ROS
+import rospy
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+####
+
 
 import sys
 import os
@@ -49,8 +55,53 @@ class PoolRobotController:
         # Shot Controls
         self.setup_shot_controls()
 
-    
+        ##Integration with ROS
+        self.bridge = CvBridge()
+        # ROS Image Subscriber
+        self.image_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.ros_image_callback)
 
+    def ros_image_callback(self, msg):
+        try:
+            # Convert ROS image to OpenCV format
+            cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+            
+            # Convert BGR to RGB
+            rgb_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+            
+            # Store original image for resizing
+            self.original_image = rgb_image
+            
+            # Resize and display image
+            self.display_image(rgb_image)
+            
+            # Detect balls
+            self.detected_balls = self.object_detector.detect_balls(cv_image)
+        
+        except Exception as e:
+            rospy.logerr(f"Image conversion error: {e}")
+
+
+    #ROS VIDEO STREAM 
+    def display_image(self, image):
+        # Resize image to fit window
+        height, width = image.shape[:2]
+        max_width = self.root.winfo_width()
+        max_height = self.root.winfo_height()
+        
+        scale = min(max_width/width, max_height/height)
+        
+        resized_image = cv2.resize(
+            image, 
+            (int(width * scale), int(height * scale)), 
+            interpolation=cv2.INTER_AREA
+        )
+        
+        # Convert to PhotoImage
+        photo = ImageTk.PhotoImage(Image.fromarray(resized_image))
+        
+        # Update label
+        self.image_label.config(image=photo)
+        self.image_label.image = photo
 
     #Used to cv an image and label balls present in the image.
     def load_and_detect_balls(self):
@@ -269,4 +320,6 @@ class PoolRobotController:
 # Run the application
 if __name__ == '__main__':
     app = PoolRobotController()
+    # Initialize ROS node
+    rospy.init_node('pool_robot_gui', anonymous=True)
     app.run()
