@@ -52,7 +52,9 @@ class ObjectDetector:
             print(ball_dict)
     
     def detect_balls(self, frame):
-        #frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+         # Check if the image is already grayscale
+        if len(frame.shape) > 2:
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # Apply GaussianBlur to reduce noise and improve circle detection
         blurred = cv2.GaussianBlur(frame, (5, 5), 0)
@@ -69,25 +71,11 @@ class ObjectDetector:
 
             # Loop through the circles and process each one
             for i, (x, y, r) in enumerate(circles):
-                # Draw the circle in green
-                cv2.circle(frame, (x, y), r, (0, 255, 0), 4)
-                # Draw the center of the circle in red
-                cv2.circle(frame, (x, y), 2, (0, 0, 255), 3)
+                ball_dict[i] = (x, y)  # populate ball dict with (x, y) values
 
-                cv2.putText(
-                    frame,
-                    f"ball_{i}",
-                    (x, y - r - 10),  # Position above the circle
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    (255, 0, 0),
-                    2
-                )
-                ball_dict[i] = (x, y) # populate ball dict with (x, y) values
-
-            cv2.imshow("Circle Detection", frame)
-            cv2.waitKey(0)
             return ball_dict
+        
+        return {}  # Return empty dict if no balls detected
 
         # Display the output frame with circles drawn
 

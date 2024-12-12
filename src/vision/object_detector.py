@@ -177,14 +177,16 @@ class ObjectDetector:
         return ball_in_base_frame
 
     def detect_balls(self, frame):
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+         # Check if the image is already grayscale
+        if len(frame.shape) > 2:
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # Apply GaussianBlur to reduce noise and improve circle detection
         blurred = cv2.GaussianBlur(frame, (5, 5), 0)
 
         # Detect circles using HoughCircles
         circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, dp=1.3, minDist=30,
-                                    param1=100, param2=30, minRadius=0, maxRadius=20)
+                                    param1=100, param2=30, minRadius=25, maxRadius=35)
 
         # If some circles are detected
         if circles is not None:
@@ -194,26 +196,11 @@ class ObjectDetector:
 
             # Loop through the circles and process each one
             for i, (x, y, r) in enumerate(circles):
-                #print(r)
-                # Draw the circle in green
-                cv2.circle(frame, (x, y), r, (0, 255, 0), 4)
-                # Draw the center of the circle in red
-                cv2.circle(frame, (x, y), 2, (0, 0, 255), 3)
+                ball_dict[i] = (x, y)  # populate ball dict with (x, y) values
 
-                cv2.putText(
-                    frame,
-                    f"ball_{i}",
-                    (x, y - r - 10),  # Position above the circle
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    (255, 0, 0),
-                    2
-                )
-                ball_dict[i] = (x, y) # populate ball dict with (x, y) values
-
-            cv2.imshow("Circle Detection", frame)
-            cv2.waitKey(1)
             return ball_dict
+        
+        return {}  # Return empty dict if no balls detected
 
 
     def get_rot_and_translation(self, ar_tag):
