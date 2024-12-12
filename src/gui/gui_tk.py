@@ -5,9 +5,9 @@ import cv2
 import numpy as np
 
 ###ROS
-import rospy
-from sensor_msgs.msg import Image
-from cv_bridge import CvBridge
+#import rospy
+#from sensor_msgs.msg import Image
+#from cv_bridge import CvBridge
 ####
 
 
@@ -56,9 +56,9 @@ class PoolRobotController:
         self.setup_shot_controls()
 
         ##Integration with ROS
-        self.bridge = CvBridge()
+        #self.bridge = CvBridge()
         # ROS Image Subscriber
-        self.image_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.ros_image_callback)
+        #self.image_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.ros_image_callback)
 
     def ros_image_callback(self, msg):
         try:
@@ -321,5 +321,5 @@ class PoolRobotController:
 if __name__ == '__main__':
     app = PoolRobotController()
     # Initialize ROS node
-    rospy.init_node('pool_robot_gui', anonymous=True)
+    #rospy.init_node('pool_robot_gui', anonymous=True)
     app.run()
