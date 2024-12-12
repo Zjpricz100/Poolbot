@@ -105,6 +105,21 @@ class Commander:
         else:
             print('Canceled. Not tucking the arm.')
 
+    def normal_tuck(self):
+        """
+        Tuck the robot arm to the start position. Use with caution
+        """
+        if input('Would you like to tuck the arm? (y/n): ') == 'y':
+            rospack = rospkg.RosPack()
+            path = rospack.get_path('intera_examples')
+            launch_path = path + '/launch/sawyer_tuck.launch'
+            uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
+            roslaunch.configure_logging(uuid)
+            launch = roslaunch.parent.ROSLaunchParent(uuid, [launch_path])
+            launch.start()
+        else:
+            print('Canceled. Not tucking the arm.')
+
     def get_trajectory(self, direction, distance, target_vel, args):
         """
         Returns an appropriate robot trajectory for the specified task.  You should 
@@ -269,16 +284,16 @@ class Commander:
     def get_offset_point(self, ball_pos, curr_orientation):
         curr_orientation = [curr_orientation.orientation.x, curr_orientation.orientation.y, curr_orientation.orientation.z, curr_orientation.orientation.w]
         (roll, pitch, yaw) = tft.euler_from_quaternion(curr_orientation)
-        angle_in_degrees = 0
+        angle_in_degrees = 90
         angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
-        new_pitch = pitch + angle_in_radians
+        new_pitch = angle_in_radians
 
         angle_in_degrees = 0
         angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
         print(yaw)
         new_yaw = angle_in_radians
 
-        rotation_quaternion = tft.quaternion_from_euler(roll, new_pitch, yaw + new_yaw)  # roll=0, pitch=angle, yaw=0
+        rotation_quaternion = tft.quaternion_from_euler(np.pi, 0, np.pi)  # roll=0, pitch=angle, yaw=0
         print(new_yaw)
         r_z = np.array([[np.cos(new_yaw), -np.sin(new_yaw), 0],
                         [np.sin(new_yaw), np.cos(new_yaw), 0],
@@ -292,9 +307,7 @@ class Commander:
         return rotation_quaternion, rotated_vector
         
 
-    def move_to_ball(self, ball_color):
-        ball_pose = rospy.wait_for_message(f"ball/{ball_color}", PoseStamped)
-        print(ball_pose)
+    def move_to_ball(self, ball_pose):
 
         curr_pos = self.get_current_position_and_orientation()
        
@@ -313,7 +326,7 @@ class Commander:
         ball_pose.pose.position.z += rotated_vector[2]
         # ball_pose.pose.position.x += -0.1
         # ball_pose.pose.position.y += -0.01
-        # ball_pose.pose.position.z += 0.1
+        ball_pose.pose.position.z += 0.1
         print(ball_pose)
 
         # Setting up constraints for IK
@@ -327,7 +340,6 @@ class Commander:
         constraints.position_constraints.append(pos_constraint)
         self.planner._group.set_path_constraints(constraints)
         '''
-
         plan = self.planner.plan_to_pose(ball_pose)
         plan = self.planner.retime_trajectory(plan, 0.3)
 
@@ -345,6 +357,13 @@ class Commander:
 if __name__ == "__main__":
     
     rospy.init_node('testing_node')
+    # ball_color = "0"
+    # ball_pose = rospy.wait_for_message(f"ball/{ball_color}", PoseStamped)
+    # commander_dummy = Commander(None, None, None)
+    # commander_dummy.normal_tuck()
+
+
+
     limb = intera_interface.Limb("right")
     kin = sawyer_kinematics("right")
     commander = Commander(limb, kin, "pole")
@@ -352,4 +371,6 @@ if __name__ == "__main__":
     #center = PoseStamped()
     #center.pose.position.z = -0.20
     #commander.create_bounding_box_marker([0.5, 0.5, 0.5], center.pose)
-    commander.move_to_ball("purple")
+    ball_color = "0"
+    ball_pose = rospy.wait_for_message(f"ball/{ball_color}", PoseStamped)
+    commander.move_to_ball(ball_pose)
