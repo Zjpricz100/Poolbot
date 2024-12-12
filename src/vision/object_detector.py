@@ -53,25 +53,31 @@ class ObjectDetector:
         #     "green" : rospy.Publisher("ball/green", self.message_type, queue_size=10)
         # }
         #self.color_image_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.color_image_callback)
-        self.color_image_sub = rospy.Subscriber("/io/internal_camera/right_hand_camera/image_rect", Image, self.color_image_callback)
+        self.color_image_sub = rospy.Subscriber("/io/internal_camera/right_hand_camera/image_raw", Image, self.color_image_callback)
+
+        self.rectified_image_topic = "/io/internal_camera/right_hand_camera/image_rectified"
+        self.rectified_pub = rospy.Publisher(self.rectified_image_topic, Image, queue_size=10)
 
         rospy.spin()
 
     def usb_camera_info_callback(self, msg):
-        K_raw = np.array(msg.K).reshape(3, 3)
+        self.K = np.array(msg.K).reshape(3, 3)
         #print(K_raw)
-        D = np.array(msg.D)
-        image_size = (752, 480)
+        self.D = np.array(msg.D)
+        self.image_size = (msg.width, msg.height)
 
-        new_K, roi = cv2.getOptimalNewCameraMatrix(K_raw, D, image_size, alpha = 1)
+        new_K, roi = cv2.getOptimalNewCameraMatrix(self.K, self.D, self.image_size, alpha = 0)
         print(new_K)
         self.fx_usb = new_K[0, 0]
         self.fy_usb = new_K[1, 1]
         self.cx_usb = new_K[0, 2]
         self.cy_usb = new_K[1, 2]
 
+        self.new_K, _ = cv2.getOptimalNewCameraMatrix(self.K, self.D, self.image_size, alpha=0)
+        self.map1, self.map2 = cv2.initUndistortRectifyMap(self.K, self.D, None, self.new_K, self.image_size, cv2.CV_16SC2)
 
-        # Extract the intrinsic parameters from the CameraInfo message
+
+        #Extract the intrinsic parameters from the CameraInfo message
         # self.fx_usb = msg.K[0]
         # self.fy_usb = msg.K[4]
         # self.cx_usb = msg.K[2]
@@ -107,25 +113,14 @@ class ObjectDetector:
         return transform
 
     def color_image_callback(self, msg):
-
-        def image_to_cartesian(image, Z):
-            """
-            Converts a tuple of (x, y) into cartesian coordinates (X, Y, Z)
-            where Z is fixed depth
-            """
-            K = np.array([
-                [self.fx, 0, 0],
-                [0, self.fy, 0],
-                [0, 0, 1]
-            ])
-            image = np.array(image)
-            image = np.concatenate((image, Z))
-            cartesian = np.linalg.inv(K) @ image
-
         try:
             
             # Convert the ROS Image message to an OpenCV image (BGR8 format)
             frame = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+            frame = cv2.remap(frame, self.map1, self.map2, interpolation=cv2.INTER_LINEAR)
+
+            rectified_msg = self.bridge.cv2_to_imgmsg(frame, encoding="bgr8")
+            self.rectified_pub.publish(rectified_msg)
             # cv2.imshow("iamg", frame)
             # cv2.waitKey(1)
             ball_dict = self.detect_balls(frame)
