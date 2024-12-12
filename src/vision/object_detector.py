@@ -58,11 +58,24 @@ class ObjectDetector:
         rospy.spin()
 
     def usb_camera_info_callback(self, msg):
+        K_raw = np.array(msg.K).reshape(3, 3)
+        #print(K_raw)
+        D = np.array(msg.D)
+        image_size = (752, 480)
+
+        new_K, roi = cv2.getOptimalNewCameraMatrix(K_raw, D, image_size, alpha = 1)
+        print(new_K)
+        self.fx_usb = new_K[0, 0]
+        self.fy_usb = new_K[1, 1]
+        self.cx_usb = new_K[0, 2]
+        self.cy_usb = new_K[1, 2]
+
+
         # Extract the intrinsic parameters from the CameraInfo message
-        self.fx_usb = msg.K[0]
-        self.fy_usb = msg.K[4]
-        self.cx_usb = msg.K[2]
-        self.cy_usb = msg.K[5]
+        # self.fx_usb = msg.K[0]
+        # self.fy_usb = msg.K[4]
+        # self.cx_usb = msg.K[2]
+        # self.cy_usb = msg.K[5]
 
     def head_camera_info_callback(self, msg):
         # Extract the intrinsic parameters from the CameraInfo message
@@ -140,7 +153,7 @@ class ObjectDetector:
     
         try:
             # Lookup the transform for the AR tag
-            transform = self.tfBuffer.lookup_transform("right_wrist", f"ar_marker_0", rospy.Time(0))
+            transform = self.tfBuffer.lookup_transform("right_wrist", f"ar_marker_4", rospy.Time(0))
             # Extract the z-coordinate (height)
             table_height = transform.transform.translation.x
             

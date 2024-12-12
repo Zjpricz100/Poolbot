@@ -49,7 +49,7 @@ class Commander:
         # For Moveit!
         self.planner = PathPlanner('right_arm')
 
-    def get_current_position_and_orientation(self, source = "base", target = "right_hand"):
+    def get_current_position_and_orientation(self, source = "base", target = "right_wrist"):
         """
         Get the current end-effector position and orientation of the robot, 
         returning them as a PoseStamped message.
@@ -373,4 +373,6 @@ if __name__ == "__main__":
     #commander.create_bounding_box_marker([0.5, 0.5, 0.5], center.pose)
     ball_color = "0"
     ball_pose = rospy.wait_for_message(f"ball/{ball_color}", PoseStamped)
+    transform = commander.tfBuffer.lookup_transform("base", f"ar_marker_4", rospy.Time(0))
+    print(f"ar_tag (x, y): {transform.transform.translation.x}, {transform.transform.translation.y}")
     commander.move_to_ball(ball_pose)
