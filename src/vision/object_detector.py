@@ -41,17 +41,17 @@ class ObjectDetector:
         self.image_pub = rospy.Publisher('detected_cup', Image, queue_size=10)
 
         self.message_type = PoseStamped
-        self.pubs = {
-            "white" : rospy.Publisher("ball/white", self.message_type, queue_size=10),
-            "yellow" : rospy.Publisher("ball/yellow", self.message_type, queue_size=10),
-            "blue" : rospy.Publisher("ball/blue", self.message_type, queue_size=10),
-            "red" : rospy.Publisher("ball/red", self.message_type, queue_size=10),
-            "purple" : rospy.Publisher("ball/purple", self.message_type, queue_size=10),
-            "orange" : rospy.Publisher("ball/orange", self.message_type, queue_size=10),
-            "maroon" : rospy.Publisher("ball/maroon", self.message_type, queue_size=10),
-            "black" : rospy.Publisher("ball/black", self.message_type, queue_size=10),
-            "green" : rospy.Publisher("ball/green", self.message_type, queue_size=10)
-        }
+        # self.pubs = {
+        #     "white" : rospy.Publisher("ball/white", self.message_type, queue_size=10),
+        #     "yellow" : rospy.Publisher("ball/yellow", self.message_type, queue_size=10),
+        #     "blue" : rospy.Publisher("ball/blue", self.message_type, queue_size=10),
+        #     "red" : rospy.Publisher("ball/red", self.message_type, queue_size=10),
+        #     "purple" : rospy.Publisher("ball/purple", self.message_type, queue_size=10),
+        #     "orange" : rospy.Publisher("ball/orange", self.message_type, queue_size=10),
+        #     "maroon" : rospy.Publisher("ball/maroon", self.message_type, queue_size=10),
+        #     "black" : rospy.Publisher("ball/black", self.message_type, queue_size=10),
+        #     "green" : rospy.Publisher("ball/green", self.message_type, queue_size=10)
+        # }
         #self.color_image_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.color_image_callback)
         self.color_image_sub = rospy.Subscriber("/io/internal_camera/right_hand_camera/image_rect", Image, self.color_image_callback)
 
@@ -93,17 +93,6 @@ class ObjectDetector:
         transform.transform.rotation.w = q[3]
         return transform
 
-    def get_usb_cam_transform(self, tf1, tf2): #tf1 from head cam, tf2 from usb_cam
-        T_usb_to_ar = self.pose_to_matrix(tf2.pose)
-        T_head_to_ar = self.pose_to_matrix(tf1.pose)
-
-        T_ar_to_usb = np.linalg.inv(T_usb_to_ar)
-        T_head_to_usb = np.dot(T_head_to_ar, T_ar_to_usb)
-
-        base_to_head = self.tf_buffer.lookup_transform('base', 'head_cam', rospy.Time(0))
-        T_base_to_head = self.pose_to_matrix(base_to_head.transform)
-        T_base_to_usb = np.dot(T_base_to_head, T_head_to_usb)
-
     def color_image_callback(self, msg):
 
         def image_to_cartesian(image, Z):
@@ -127,16 +116,18 @@ class ObjectDetector:
             # cv2.imshow("iamg", frame)
             # cv2.waitKey(1)
             ball_dict = self.detect_balls(frame)
-            # for (key, value) in ball_dict.items():
-            #     pub = self.pubs[key]
-            #     # ball = PoseStamped()
-            #     # ball.pose.position.x = value[0]
-            #     # ball.pose.position.y = value[1]
-            #     # pub.publish(ball)
-            #     Z = self.get_table_height()
-            #     x, y = value
-            #     ball = self.pixel_to_world(x, y, Z)
-            #     pub.publish(ball)
+            for (key, value) in ball_dict.items():
+                pub = rospy.Publisher(f"ball/{key}", self.message_type, queue_size=10)
+                # ball = PoseStamped()
+                # ball.pose.position.x = value[0]
+                # ball.pose.position.y = value[1]
+                # pub.publish(ball)
+                Z = self.get_table_height(0)
+                #print(f"table height: {Z}")
+                x, y = value
+                ball = self.pixel_to_world(x, y, Z)
+                #print(ball)
+                pub.publish(ball)
 
         except Exception as e:
             print("Error:", e)
@@ -149,9 +140,9 @@ class ObjectDetector:
     
         try:
             # Lookup the transform for the AR tag
-            transform = self.tfBuffer.lookup_transform("usb_cam", "ar_marker_3", rospy.Time(0))
+            transform = self.tfBuffer.lookup_transform("right_wrist", f"ar_marker_0", rospy.Time(0))
             # Extract the z-coordinate (height)
-            table_height = transform.transform.translation.z
+            table_height = transform.transform.translation.x
             
             #rospy.loginfo(f"Table height (z): {table_height} meters")
             return table_height
@@ -164,16 +155,16 @@ class ObjectDetector:
     def pixel_to_world(self, u, v, Z):
 
         # Pixel to camera coordinates
-        X_camera = Z * (u - self.cx) / self.fx
-        Y_camera = Z * (v - self.cy) / self.fy
-        Z_camera = Z
+        X_camera = Z
+        Y_camera = Z * (v - self.cy_usb) / self.fy_usb
+        Z_camera = Z * (u - self.cx_usb) / self.fx_usb
 
         # Create point in camera frame
         ball_in_camera_frame = PoseStamped()
-        ball_in_camera_frame.header.frame_id = "usb_cam"
+        ball_in_camera_frame.header.frame_id = "right_wrist"
         ball_in_camera_frame.pose.position.x = X_camera
-        ball_in_camera_frame.pose.position.y = Y_camera
-        ball_in_camera_frame.pose.position.z = Z_camera
+        ball_in_camera_frame.pose.position.y = -Z_camera
+        ball_in_camera_frame.pose.position.z = -Y_camera
 
         #print(type(ball_in_camera_frame))
         ball_in_world_frame = self.tfBuffer.transform(ball_in_camera_frame, "base", rospy.Duration(1.0))
@@ -193,7 +184,7 @@ class ObjectDetector:
 
         # Detect circles using HoughCircles
         circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, dp=1.3, minDist=30,
-                                    param1=100, param2=30, minRadius=0, maxRadius=35)
+                                    param1=100, param2=30, minRadius=0, maxRadius=20)
 
         # If some circles are detected
         if circles is not None:
@@ -203,6 +194,7 @@ class ObjectDetector:
 
             # Loop through the circles and process each one
             for i, (x, y, r) in enumerate(circles):
+                #print(r)
                 # Draw the circle in green
                 cv2.circle(frame, (x, y), r, (0, 255, 0), 4)
                 # Draw the center of the circle in red
@@ -221,7 +213,7 @@ class ObjectDetector:
 
             cv2.imshow("Circle Detection", frame)
             cv2.waitKey(1)
-        #return ball_dict
+            return ball_dict
 
 
     def get_rot_and_translation(self, ar_tag):
