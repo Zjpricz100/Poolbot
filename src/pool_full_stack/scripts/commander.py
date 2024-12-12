@@ -49,7 +49,7 @@ class Commander:
         # For Moveit!
         self.planner = PathPlanner('right_arm')
 
-    def get_current_position_and_orientation(self, source = "base", target = "right_wrist"):
+    def get_current_position_and_orientation(self, source = "base", target = "right_hand"):
         """
         Get the current end-effector position and orientation of the robot, 
         returning them as a PoseStamped message.
@@ -278,29 +278,25 @@ class Commander:
 
         
 
-        
-
-
     def get_offset_point(self, ball_pos, curr_orientation):
         curr_orientation = [curr_orientation.orientation.x, curr_orientation.orientation.y, curr_orientation.orientation.z, curr_orientation.orientation.w]
         (roll, pitch, yaw) = tft.euler_from_quaternion(curr_orientation)
-        angle_in_degrees = 90
+        angle_in_degrees = 0
         angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
-        new_pitch = angle_in_radians
+        new_pitch = pitch + angle_in_radians
 
         angle_in_degrees = 0
         angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
         print(yaw)
         new_yaw = angle_in_radians
 
-        rotation_quaternion = tft.quaternion_from_euler(np.pi, 0, np.pi)  # roll=0, pitch=angle, yaw=0
+        rotation_quaternion = tft.quaternion_from_euler(roll, new_pitch, yaw + new_yaw)  # roll=0, pitch=angle, yaw=0
         print(new_yaw)
         r_z = np.array([[np.cos(new_yaw), -np.sin(new_yaw), 0],
                         [np.sin(new_yaw), np.cos(new_yaw), 0],
                         [0, 0, 1]])
 
-        #offset_vector = [-0.3, -0.0, 0.05]
-        offset_vector = [0, 0, 0]
+        offset_vector = [0, 0, 0.04]
 
         rotated_vector = r_z @ offset_vector
         print(rotated_vector)
@@ -326,7 +322,7 @@ class Commander:
         ball_pose.pose.position.z += rotated_vector[2]
         # ball_pose.pose.position.x += -0.1
         # ball_pose.pose.position.y += -0.01
-        ball_pose.pose.position.z += 0.1
+        # ball_pose.pose.position.z += 0.1
         print(ball_pose)
 
         # Setting up constraints for IK

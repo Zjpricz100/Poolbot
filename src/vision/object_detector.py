@@ -30,7 +30,7 @@ class ObjectDetector:
         self.cx = None
         self.cy = None
 
-        self.wrist_camera_info_sub = rospy.Subscriber("/io/internal_camera/right_hand_camera/camera_info", CameraInfo, self.usb_camera_info_callback)
+        #self.wrist_camera_info_sub = rospy.Subscriber("/io/internal_camera/right_hand_camera/camera_info", CameraInfo, self.usb_camera_info_callback)
         #self.head_camera_info_sub = rospy.Subscriber("/io/internal_camera/head_camera/camera_info", CameraInfo, self.head_camera_info_callback)
         
         self.tfBuffer = tf2_ros.Buffer()
@@ -52,36 +52,37 @@ class ObjectDetector:
         #     "black" : rospy.Publisher("ball/black", self.message_type, queue_size=10),
         #     "green" : rospy.Publisher("ball/green", self.message_type, queue_size=10)
         # }
-        #self.color_image_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.color_image_callback)
-        self.color_image_sub = rospy.Subscriber("/io/internal_camera/right_hand_camera/image_raw", Image, self.color_image_callback)
+        self.camera_info_sub = rospy.Subscriber("/usb_cam/camera_info", CameraInfo, self.usb_camera_info_callback)
+        self.color_image_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.color_image_callback)
+        #self.color_image_sub = rospy.Subscriber("/io/internal_camera/right_hand_camera/image_raw", Image, self.color_image_callback)
 
-        self.rectified_image_topic = "/io/internal_camera/right_hand_camera/image_rectified"
-        self.rectified_pub = rospy.Publisher(self.rectified_image_topic, Image, queue_size=10)
+        # self.rectified_image_topic = "/io/internal_camera/right_hand_camera/image_rectified"
+        # self.rectified_pub = rospy.Publisher(self.rectified_image_topic, Image, queue_size=10)
 
         rospy.spin()
 
     def usb_camera_info_callback(self, msg):
-        self.K = np.array(msg.K).reshape(3, 3)
-        #print(K_raw)
-        self.D = np.array(msg.D)
-        self.image_size = (msg.width, msg.height)
+        # self.K = np.array(msg.K).reshape(3, 3)
+        # #print(K_raw)
+        # self.D = np.array(msg.D)
+        # self.image_size = (msg.width, msg.height)
 
-        new_K, roi = cv2.getOptimalNewCameraMatrix(self.K, self.D, self.image_size, alpha = 0)
-        print(new_K)
-        self.fx_usb = new_K[0, 0]
-        self.fy_usb = new_K[1, 1]
-        self.cx_usb = new_K[0, 2]
-        self.cy_usb = new_K[1, 2]
+        # new_K, roi = cv2.getOptimalNewCameraMatrix(self.K, self.D, self.image_size, alpha = 0)
+        # #print(new_K)
+        # self.fx_usb = new_K[0, 0]
+        # self.fy_usb = new_K[1, 1]
+        # self.cx_usb = new_K[0, 2]
+        # self.cy_usb = new_K[1, 2]
 
-        self.new_K, _ = cv2.getOptimalNewCameraMatrix(self.K, self.D, self.image_size, alpha=0)
-        self.map1, self.map2 = cv2.initUndistortRectifyMap(self.K, self.D, None, self.new_K, self.image_size, cv2.CV_16SC2)
+        # self.new_K, _ = cv2.getOptimalNewCameraMatrix(self.K, self.D, self.image_size, alpha=0)
+        # self.map1, self.map2 = cv2.initUndistortRectifyMap(self.K, self.D, None, self.new_K, self.image_size, cv2.CV_16SC2)
 
 
         #Extract the intrinsic parameters from the CameraInfo message
-        # self.fx_usb = msg.K[0]
-        # self.fy_usb = msg.K[4]
-        # self.cx_usb = msg.K[2]
-        # self.cy_usb = msg.K[5]
+        self.fx_usb = msg.K[0]
+        self.fy_usb = msg.K[4]
+        self.cx_usb = msg.K[2]
+        self.cy_usb = msg.K[5]
 
     def head_camera_info_callback(self, msg):
         # Extract the intrinsic parameters from the CameraInfo message
@@ -117,10 +118,10 @@ class ObjectDetector:
             
             # Convert the ROS Image message to an OpenCV image (BGR8 format)
             frame = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-            frame = cv2.remap(frame, self.map1, self.map2, interpolation=cv2.INTER_LINEAR)
+            # frame = cv2.remap(frame, self.map1, self.map2, interpolation=cv2.INTER_LINEAR)
 
-            rectified_msg = self.bridge.cv2_to_imgmsg(frame, encoding="bgr8")
-            self.rectified_pub.publish(rectified_msg)
+            # rectified_msg = self.bridge.cv2_to_imgmsg(frame, encoding="bgr8")
+            # self.rectified_pub.publish(rectified_msg)
             # cv2.imshow("iamg", frame)
             # cv2.waitKey(1)
             ball_dict = self.detect_balls(frame)
@@ -148,9 +149,9 @@ class ObjectDetector:
     
         try:
             # Lookup the transform for the AR tag
-            transform = self.tfBuffer.lookup_transform("right_wrist", f"ar_marker_4", rospy.Time(0))
+            transform = self.tfBuffer.lookup_transform("usb_cam", f"ar_marker_4", rospy.Time(0))
             # Extract the z-coordinate (height)
-            table_height = transform.transform.translation.x
+            table_height = transform.transform.translation.z
             
             #rospy.loginfo(f"Table height (z): {table_height} meters")
             return table_height
@@ -163,16 +164,20 @@ class ObjectDetector:
     def pixel_to_world(self, u, v, Z):
 
         # Pixel to camera coordinates
-        X_camera = Z
+        # X_camera = Z
+        # Y_camera = Z * (v - self.cy_usb) / self.fy_usb
+        # Z_camera = Z * (u - self.cx_usb) / self.fx_usb
+
+        X_camera = Z * (u - self.cx_usb) / self.fx_usb
         Y_camera = Z * (v - self.cy_usb) / self.fy_usb
-        Z_camera = Z * (u - self.cx_usb) / self.fx_usb
+        Z_camera = Z
 
         # Create point in camera frame
         ball_in_camera_frame = PoseStamped()
-        ball_in_camera_frame.header.frame_id = "right_wrist"
+        ball_in_camera_frame.header.frame_id = "usb_cam"
         ball_in_camera_frame.pose.position.x = X_camera
-        ball_in_camera_frame.pose.position.y = -Z_camera
-        ball_in_camera_frame.pose.position.z = -Y_camera
+        ball_in_camera_frame.pose.position.y = Y_camera
+        ball_in_camera_frame.pose.position.z = Z_camera
 
         #print(type(ball_in_camera_frame))
         ball_in_world_frame = self.tfBuffer.transform(ball_in_camera_frame, "base", rospy.Duration(1.0))
