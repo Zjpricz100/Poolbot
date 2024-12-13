@@ -20,7 +20,7 @@ sys.path.append(src_dir)
 
 #TODO Note that ObjectDetector.detect_balls is different in
 #vision.object_detector_cv_only than vision.object_detector
-from vision.object_detector_cv_only import ObjectDetector
+from vision.object_detector_cv_only_ import ObjectDetector
 
 
 class PoolRobotController:

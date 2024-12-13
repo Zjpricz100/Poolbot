@@ -7,7 +7,7 @@ import sys
 # Add src directory to path
 src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(src_dir)
-from vision.object_detector_cv_only import ObjectDetector
+from vision.object_detector_cv_only_ import ObjectDetector
 
 class PoolGameFrame(wx.Frame):
     def __init__(self):
