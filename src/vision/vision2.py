@@ -1,6 +1,8 @@
 import rospy
 from tf import TransformListener
 from tf.transformations import inverse_matrix, concatenate_matrices
+import tf
+import numpy as np
 
 def compute_camera_transform():
     rospy.init_node('camera_transform_computation', anonymous=True)
@@ -28,8 +30,19 @@ def compute_camera_transform():
         print("Transform from usb_camera to head_camera:")
         print(T_space_to_head)
 
+        #print(f"T_space_to_tag: {T_space_to_tag}")
+
+        trans_space_to_tag_arr = np.append(trans_space_to_tag, 1)
+        #ar_tag_pos_cam_frame = np.array([transform.transform.translation.x, transform.transform.translation.y, transform.transform.translation.z, 1])
+            
+        print(np.dot(T_space_to_head, trans_space_to_tag_arr))
+
+        #transform = tfListener.lookupTransform("head_camera", f"ar_marker_3", rospy.Time(0))
+        #ar_tag_pos_head_frame = np.array([transform.transform.translation.x, transform.transform.translation.y, transform.transform.translation.z, 1])
+        print(trans_head_to_tag)
+
     except Exception as e:
         rospy.logerr("Error computing transform: %s", str(e))
 
-if __name__ == "__main__":
+if __name__ == "__main__":#
     compute_camera_transform()
