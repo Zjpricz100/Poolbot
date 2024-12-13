@@ -84,13 +84,90 @@ class Commander:
             pose_stamped.pose.orientation.w = trans.transform.rotation.w
             
             return pose_stamped
+            
 
     
         
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
             rospy.logerr(f"Failed to get current position and orientation: {e}")
             return None
+    
+    def get_current_orientation(self):
+        """
+        Get the current end-effector position and orientation of the robot, 
+        returning them as a PoseStamped message.
         
+        Returns:
+        --------
+        geometry_msgs/PoseStamped
+            A PoseStamped message containing the position and orientation 
+            of the end-effector with a timestamp and frame of reference.
+        """
+        try:
+            # Look up the transform from base to right_hand
+            trans = self.tfBuffer.lookup_transform("base", "right_hand", rospy.Time(0), rospy.Duration(10.0))
+            
+            # Create PoseStamped message
+            pose_stamped = PoseStamped()
+            
+            # Set the header with the frame of reference and timestamp
+            pose_stamped.header.stamp = rospy.Time.now()  # Set the current timestamp
+            pose_stamped.header.frame_id = "base"  # Frame of reference
+            
+            # Set the position (Point)
+            pose_stamped.pose.position.x = trans.transform.translation.x
+            pose_stamped.pose.position.y = trans.transform.translation.y
+            pose_stamped.pose.position.z = trans.transform.translation.z
+            
+            # Set the orientation (Quaternion)
+            pose_stamped.pose.orientation.x = trans.transform.rotation.x
+            pose_stamped.pose.orientation.y = trans.transform.rotation.y
+            pose_stamped.pose.orientation.z = trans.transform.rotation.z
+            pose_stamped.pose.orientation.w = trans.transform.rotation.w
+            
+            return [trans.transform.rotation.x, trans.transform.rotation.y, trans.transform.rotation.z, trans.transform.rotation.w]
+            
+
+    
+        
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
+            rospy.logerr(f"Failed to get current position and orientation: {e}")
+            return None
+
+    def get_current_position(self):
+        """
+        Get the current end-effector position of the robot.
+        
+        Parameters:
+        -----------
+        limb : intera_interface.Limb
+            The limb interface object for the Sawyer robot.
+        
+        Returns:
+        --------
+        numpy.ndarray
+            A 3-element array representing the [x, y, z] position of the end-effector.
+        """
+        # Create a tf2 buffer and listener
+        tfBuffer = self.tfBuffer
+        tfListener = self.tfListener
+        
+        try:
+            # Look up the transform from base to right_hand
+            trans = tfBuffer.lookup_transform('base', 'right_hand', rospy.Time(0), rospy.Duration(10.0))
+            
+            # Extract the position from the transform
+            position = np.array([
+                trans.transform.translation.x,
+                trans.transform.translation.y,
+                trans.transform.translation.z
+            ])
+            
+            return position
+        
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
+            rospy.logerr(f"Failed to get current position: {e}")
+            return None
     def tuck(self):
         """
         Tuck the robot arm to the start position. Use with caution
@@ -139,15 +216,16 @@ class Commander:
         -------
         :obj:`moveit_msgs.msg.RobotTrajectory`
         """
+        current_orientation = self.get_current_orientation()
 
-        current_position = self.get_current_position(self.limb)
+        current_position = self.get_current_position()
         target_position = current_position + direction * distance
 
         trajectory = LinearTrajectory(
             start_position = current_position,
             goal_position = target_position,
             target_velocity = target_vel,
-            desired_orientation = [0, 1, 0, 0]
+            desired_orientation = current_orientation
         )
         path = MotionPath(self.limb, self.kin, trajectory)
         return path.to_robot_trajectory(args.num_way, jointspace=True, extra_points=0)
@@ -187,7 +265,7 @@ class Commander:
             plan = planner.retime_trajectory(plan, 0.3)
         planner.execute_plan(plan[1])
 
-        controller = self.get_controller(args.controller_name, self.limb, self.kin)
+        controller = self.get_controller(args.controller_name)
         try:
             input('Press <Enter> to execute the trajectory using YOUR OWN controller')
         except KeyboardInterrupt:
@@ -279,36 +357,37 @@ class Commander:
 
         
 
-    def get_offset_point(self, ball_pos, curr_orientation):
+    def get_offset_point(self, ball_pos, curr_orientation, desired_angle = 90):
         curr_orientation = [curr_orientation.orientation.x, curr_orientation.orientation.y, curr_orientation.orientation.z, curr_orientation.orientation.w]
         (roll, pitch, yaw) = tft.euler_from_quaternion(curr_orientation)
         angle_in_degrees = -10
         angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
         new_pitch = pitch + angle_in_radians
 
-        angle_in_degrees = 180
+        angle_in_degrees = desired_angle
+        adjusted_angle_in_degrees = 180 - yaw + angle_in_degrees
         angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
         print(yaw)
         new_yaw = angle_in_radians
 
-        rotation_quaternion = tft.quaternion_from_euler(roll, new_pitch, new_yaw)  # roll=0, pitch=angle, yaw=0
+        rotation_quaternion = tft.quaternion_from_euler(roll, new_pitch, yaw + new_yaw)  # roll=0, pitch=angle, yaw=0
         print(new_yaw)
         r_z = np.array([[np.cos(new_yaw), -np.sin(new_yaw), 0],
                         [np.sin(new_yaw), np.cos(new_yaw), 0],
                         [0, 0, 1]])
 
-        offset_vector = [-0.32, 0, 0.06]
+        offset_vector = [-0.3, 0, 0.08]
 
         rotated_vector = r_z @ offset_vector
         print(rotated_vector)
         return rotation_quaternion, rotated_vector
         
 
-    def move_to_ball(self, ball_pose):
+    def move_to_ball(self, ball_pose, desired_angle = 90):
 
         curr_pos = self.get_current_position_and_orientation()
        
-        rotation_quaternion, rotated_vector = self.get_offset_point(ball_pose, curr_pos.pose)
+        rotation_quaternion, rotated_vector = self.get_offset_point(ball_pose, curr_pos.pose, desired_angle)
 
         rotated_orientation = Quaternion()
         rotated_orientation.x = rotation_quaternion[0]
@@ -355,6 +434,18 @@ class Commander:
 
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-task', '-t', type=str, default='line', help='Only "line" is supported')
+    parser.add_argument('-controller_name', '-c', type=str, default='pid', help='Options: moveit, open_loop, pid. Default: pid')
+    parser.add_argument('-rate', type=int, default=200, help='Control loop rate in Hz. Default: 200')
+    parser.add_argument('-timeout', type=int, default=None, help='Timeout in seconds. Default: None')
+    parser.add_argument('-num_way', type=int, default=50, help='Number of waypoints. Default: 50')
+    parser.add_argument('--log', action='store_true', help='Log and plot controller performance')
+    parser.add_argument('-ar_marker', '-ar', nargs='+', help=
+        'Which AR marker to use.  Default: 1'
+    )
+    args = parser.parse_args()
     
     rospy.init_node('testing_node')
     # ball_color = "0"
@@ -375,4 +466,14 @@ if __name__ == "__main__":
     ball_pose = rospy.wait_for_message(f"ball/{ball_color}", PoseStamped)
     transform = commander.tfBuffer.lookup_transform("base", f"ar_marker_3", rospy.Time(0))
     print(f"ar_tag (x, y): {transform.transform.translation.x}, {transform.transform.translation.y}")
-    commander.move_to_ball(ball_pose)
+    desired_angle = 270
+    commander.move_to_ball(ball_pose, desired_angle)
+    robot_trajectory = commander.get_trajectory(
+        np.array([np.cos(np.deg2rad(desired_angle)), np.sin(np.deg2rad(desired_angle)), 0]),
+        0.1,
+        0.5,
+        args=args
+    )
+    commander.exec_trajectory(robot_trajectory, args)
+
+
