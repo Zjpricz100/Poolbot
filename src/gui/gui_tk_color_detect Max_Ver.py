@@ -5,9 +5,9 @@ import cv2
 import numpy as np
 
 ###ROS
-#import rospy
-#from sensor_msgs.msg import Image
-#from cv_bridge import CvBridge
+import rospy
+from sensor_msgs.msg import Image as Image2
+from cv_bridge import CvBridge
 ####
 
 
@@ -23,6 +23,7 @@ from vision.object_detector_cv_only_ import ObjectDetector
 
 class PoolRobotController:
     def __init__(self):
+        rospy.init_node('pool_robot_gui', anonymous=True)
         self.root = tk.Tk()
         self.root.title("Pool Robot Controller")
         self.root.geometry("800x800")
@@ -59,6 +60,7 @@ class PoolRobotController:
         # Setup for streaming. 
         self.is_streaming = False
         self.cap = None
+        self.screenshot = False
 
         
         # Add video stream button
@@ -76,14 +78,16 @@ class PoolRobotController:
             command=self.take_screenshot
         )
         screenshot_button.pack(pady=10)
+
         
     
         ##Integration with ROS
-        #self.bridge = CvBridge()
+        self.bridge = CvBridge()
         # ROS Image Subscriber
-        #self.image_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.ros_image_callback)
+        self.image_sub = rospy.Subscriber("/usb_cam/image_raw", Image2, self.ros_image_callback)
 
     def toggle_video_stream(self):
+        self.screenshot = False
         if not self.is_streaming:
             # Start video stream
             self.cap = cv2.VideoCapture(0)
@@ -131,6 +135,7 @@ class PoolRobotController:
         try:
             # Convert ROS image to OpenCV format
             cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+            self.cv_image = cv_image #Record ros image in cv format
             
             # Convert BGR to RGB
             rgb_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
@@ -149,6 +154,7 @@ class PoolRobotController:
 
     #ROS VIDEO STREAM 
     def display_image(self, image):
+        self.is_streaming = True
         # Resize image to fit window
         height, width = image.shape[:2]
         max_width = self.root.winfo_width()
@@ -163,11 +169,13 @@ class PoolRobotController:
         )
         
         # Convert to PhotoImage
-        photo = ImageTk.PhotoImage(Image.fromarray(resized_image))
-        
-        # Update label
-        self.image_label.config(image=photo)
-        self.image_label.image = photo
+        self.photo = ImageTk.PhotoImage(Image.fromarray(resized_image))
+
+
+        if not self.screenshot:
+            # Update label
+            self.image_label.config(image=self.photo)
+            self.image_label.image = self.photo
 
     #Used to cv an image and label balls present in the image.
     def load_and_detect_balls(self):
@@ -231,16 +239,21 @@ class PoolRobotController:
     #Used to click on ball of choice to choose trajectory.
     def on_image_click(self, event):
         #TODO Debug print to understand click coordinates
-        #print(f"Click coordinates: x={event.x}, y={event.y}")
-        #print("Detected Balls:", self.detected_balls)
-        #print(f"Image label width: {self.image_label.winfo_width()}")
-        #print(f"Image label height: {self.image_label.winfo_height()}")
+        print(f"Click coordinates: x={event.x}, y={event.y}")
+        print("Detected Balls:", self.detected_balls)
+        print(f"Image label width: {self.image_label.winfo_width()}")
+        print(f"Image label height: {self.image_label.winfo_height()}")
 
         # Ensure image is loaded
         # Check if we have a photo reference
-        if not hasattr(self, 'photo'):
+        if not hasattr(self, 'screenshot'):
             print("No image loaded")
             return
+        
+
+        #Get the screenshot from ros and display
+        #self.photo = ImageTk.PhotoImage(Image.fromarray(self.cv_image))
+        #self.image_label.config(image=self.photo)
 
         # Get image dimensions from the PhotoImage object
         image_width = self.photo.width()
@@ -322,19 +335,14 @@ class PoolRobotController:
             self.image_label.config(image=self.photo)
 
     def take_screenshot(self):
-        if not self.is_streaming or not self.cap:
+        if not self.is_streaming:
             messagebox.showerror("Error", "Video stream must be active to take screenshot")
             return
+        self.screenshot = True
             
         # Capture current frame
-        ret, frame = self.cap.read()
-        if not ret:
-            messagebox.showerror("Error", "Failed to capture screenshot")
-            return
+        frame = self.cv_image
             
-        # Stop video stream
-        self.toggle_video_stream()
-        
         # Process captured frame
         self.detected_balls = self.object_detector.detect_balls_static(frame)
         
@@ -364,16 +372,16 @@ class PoolRobotController:
             scaled_y = int(y * (new_height / height))
             scaled_balls[color] = (scaled_x, scaled_y)
         
-        # Update detected balls with scaled coordinates
         self.detected_balls = scaled_balls
         
-        # Display the image
+        # Create and store PhotoImage
         self.photo = ImageTk.PhotoImage(Image.fromarray(resized_image))
         self.image_label.config(image=self.photo)
         
-        # Bind angle and power sliders to redraw arrow
+        # Enable shot controls
         self.angle_slider.bind("<Motion>", self.draw_shot_arrow)
         self.power_slider.bind("<Motion>", self.draw_shot_arrow)
+
 
     def setup_shot_controls(self):
         shot_frame = tk.LabelFrame(self.root, text="Shot Controls")
