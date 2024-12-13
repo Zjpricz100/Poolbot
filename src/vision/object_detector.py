@@ -35,6 +35,8 @@ class ObjectDetector:
         self.camera_info_sub = rospy.Subscriber("/usb_cam/camera_info", CameraInfo, self.usb_camera_info_callback)
         self.color_image_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.color_image_callback)
 
+        self.T = self.compute_camera_transform()
+
         rospy.spin()
 
     def usb_camera_info_callback(self, msg):
@@ -71,10 +73,10 @@ class ObjectDetector:
             # Lookup the transform for the AR tag
             transform = self.tfBuffer.lookup_transform("usb_cam", f"ar_marker_{ar_tag_number}", rospy.Time(0))
             # Extract the z-coordinate (height)
-            table_height = transform.transform.translation.z
+            table_height = transform.transform.translation.z 
             
             #rospy.loginfo(f"Table height (z): {table_height} meters")
-            return table_height
+            return table_height + 0.01
         
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
             print(e)
@@ -125,7 +127,7 @@ class ObjectDetector:
         camera_point = np.array([X_camera, Y_camera, Z_camera, 1.0])  # Homogeneous coordinates
 
         # Step 3: Apply the precomputed transformation matrix
-        T = self.compute_camera_transform()
+        T = self.T
 
         head_frame_point = np.dot(T, camera_point)
 
@@ -151,20 +153,20 @@ class ObjectDetector:
             return None
 
     def detect_balls(self, frame):
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        grey_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # Apply GaussianBlur to reduce noise and improve circle detection
-        blurred = cv2.GaussianBlur(frame, (5, 5), 0)
+        blurred = cv2.GaussianBlur(grey_frame, (5, 5), 0)
 
         # Detect circles using HoughCircles
         circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, dp=1.3, minDist=30,
-                                    param1=100, param2=30, minRadius=0, maxRadius=20)
+                                    param1=100, param2=30, minRadius=15, maxRadius=25)
 
         # If some circles are detected
+        ball_dict = {}
         if circles is not None:
             # Round the circle values and convert to integer
             circles = np.round(circles[0, :]).astype("int")
-            ball_dict = {}
 
             # Loop through the circles and process each one
             for i, (x, y, r) in enumerate(circles):
@@ -185,9 +187,9 @@ class ObjectDetector:
                 )
                 ball_dict[i] = (x, y) # populate ball dict with (x, y) values
 
-            cv2.imshow("Circle Detection", frame)
-            cv2.waitKey(1)
-            return ball_dict
+        cv2.imshow("Circle Detection", frame)
+        cv2.waitKey(1)
+        return ball_dict
 
 
     def get_rot_and_translation(self, ar_tag):

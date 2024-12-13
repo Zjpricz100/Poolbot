@@ -43,6 +43,7 @@ class Commander:
         
         # For visualizing trajectories
         self.pub = rospy.Publisher('move_group/display_planned_path', DisplayTrajectory, queue_size=10)
+        self.end_pub = rospy.Publisher('ball/end_pose', PoseStamped, queue_size=10)
         self.marker_pub = rospy.Publisher('bounding_box', Marker, queue_size=10)
         self.disp_traj = DisplayTrajectory()
 
@@ -281,22 +282,22 @@ class Commander:
     def get_offset_point(self, ball_pos, curr_orientation):
         curr_orientation = [curr_orientation.orientation.x, curr_orientation.orientation.y, curr_orientation.orientation.z, curr_orientation.orientation.w]
         (roll, pitch, yaw) = tft.euler_from_quaternion(curr_orientation)
-        angle_in_degrees = 0
+        angle_in_degrees = -10
         angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
         new_pitch = pitch + angle_in_radians
 
-        angle_in_degrees = 0
+        angle_in_degrees = 180
         angle_in_radians = angle_in_degrees * (3.14159 / 180.0)  # Convert to radians
         print(yaw)
         new_yaw = angle_in_radians
 
-        rotation_quaternion = tft.quaternion_from_euler(roll, new_pitch, yaw + new_yaw)  # roll=0, pitch=angle, yaw=0
+        rotation_quaternion = tft.quaternion_from_euler(roll, new_pitch, new_yaw)  # roll=0, pitch=angle, yaw=0
         print(new_yaw)
         r_z = np.array([[np.cos(new_yaw), -np.sin(new_yaw), 0],
                         [np.sin(new_yaw), np.cos(new_yaw), 0],
                         [0, 0, 1]])
 
-        offset_vector = [0, 0, 0]
+        offset_vector = [-0.32, 0, 0.06]
 
         rotated_vector = r_z @ offset_vector
         print(rotated_vector)
@@ -324,6 +325,9 @@ class Commander:
         # ball_pose.pose.position.y += -0.01
         # ball_pose.pose.position.z += 0.1
         print(ball_pose)
+
+        self.end_pub.publish(ball_pose)
+        
 
         # Setting up constraints for IK
 
