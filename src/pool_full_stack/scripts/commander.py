@@ -448,20 +448,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     rospy.init_node('testing_node')
-    # ball_color = "0"
-    # ball_pose = rospy.wait_for_message(f"ball/{ball_color}", PoseStamped)
-    # commander_dummy = Commander(None, None, None)
-    # commander_dummy.normal_tuck()
-
-
 
     limb = intera_interface.Limb("right")
     kin = sawyer_kinematics("right")
     commander = Commander(limb, kin, "pole")
-
-    #center = PoseStamped()
-    #center.pose.position.z = -0.20
-    #commander.create_bounding_box_marker([0.5, 0.5, 0.5], center.pose)
     ball_color = "0"
     ball_pose = rospy.wait_for_message(f"ball/{ball_color}", PoseStamped)
     transform = commander.tfBuffer.lookup_transform("base", f"ar_marker_3", rospy.Time(0))
