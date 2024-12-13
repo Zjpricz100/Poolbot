@@ -34,8 +34,10 @@ def compute_camera_transform():
 
         trans_space_to_tag_arr = np.append(trans_space_to_tag, 1)
         #ar_tag_pos_cam_frame = np.array([transform.transform.translation.x, transform.transform.translation.y, transform.transform.translation.z, 1])
-            
-        print(np.dot(T_space_to_head, trans_space_to_tag_arr))
+        
+        T_head_to_space = inverse_matrix(T_space_to_head)
+
+        print(np.dot(T_head_to_space, trans_space_to_tag_arr))
 
         #transform = tfListener.lookupTransform("head_camera", f"ar_marker_3", rospy.Time(0))
         #ar_tag_pos_head_frame = np.array([transform.transform.translation.x, transform.transform.translation.y, transform.transform.translation.z, 1])

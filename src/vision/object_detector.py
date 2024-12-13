@@ -98,12 +98,14 @@ class ObjectDetector:
             T_head_to_tag = listener.fromTranslationRotation(trans_head_to_tag, rot_head_to_tag)
 
             # Compute inverse of head_camera -> ar_tag
-            T_tag_to_head = inverse_matrix(T_head_to_tag)
+            T_tag_to_space = inverse_matrix(T_space_to_tag)
 
             # Compute space_camera -> head_camera
-            T_space_to_head = concatenate_matrices(T_space_to_tag, T_tag_to_head)
+            T_head_to_space = concatenate_matrices(T_head_to_tag, T_tag_to_space)
 
-            return T_space_to_head
+            # T_head_to_space = inverse_matrix(T_space_to_head)
+
+            return T_head_to_space
 
         except Exception as e:
             rospy.logerr("Error computing transform: %s", str(e))

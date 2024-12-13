@@ -296,7 +296,7 @@ class Commander:
                         [np.sin(new_yaw), np.cos(new_yaw), 0],
                         [0, 0, 1]])
 
-        offset_vector = [0, 0, 0.04]
+        offset_vector = [0, 0, 0]
 
         rotated_vector = r_z @ offset_vector
         print(rotated_vector)
@@ -369,6 +369,6 @@ if __name__ == "__main__":
     #commander.create_bounding_box_marker([0.5, 0.5, 0.5], center.pose)
     ball_color = "0"
     ball_pose = rospy.wait_for_message(f"ball/{ball_color}", PoseStamped)
-    transform = commander.tfBuffer.lookup_transform("base", f"ar_marker_4", rospy.Time(0))
+    transform = commander.tfBuffer.lookup_transform("base", f"ar_marker_3", rospy.Time(0))
     print(f"ar_tag (x, y): {transform.transform.translation.x}, {transform.transform.translation.y}")
     commander.move_to_ball(ball_pose)
