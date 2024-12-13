@@ -79,8 +79,6 @@ class PoolRobotController:
         )
         screenshot_button.pack(pady=10)
 
-        
-    
         ##Integration with ROS
         self.bridge = CvBridge()
         # ROS Image Subscriber
@@ -112,7 +110,8 @@ class PoolRobotController:
                 self.detected_balls = self.object_detector.detect_balls(frame)
                 
                 # Convert BGR to RGB
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                #frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frame_rgb = frame
                 
                 # Resize frame
                 height, width = frame_rgb.shape[:2]
@@ -132,25 +131,27 @@ class PoolRobotController:
                     self.root.after(10, self.update_video_stream)
 
     def ros_image_callback(self, msg):
-        try:
-            # Convert ROS image to OpenCV format
-            cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-            self.cv_image = cv_image #Record ros image in cv format
+        #If there is not a screenshot update the video
+        if not self.screenshot:
+            try:
+                # Convert ROS image to OpenCV format
+                self.cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+                
+                # Convert BGR to RGB
+                rgb_image = cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2RGB)
+                #rgb_image = self.cv_image
+                
+                # Store original image for resizing
+                self.original_image = rgb_image
+                
+                # Resize and display image
+                self.display_image(rgb_image)
+                
+                # Detect balls
+                self.detected_balls = self.object_detector.detect_balls(self.cv_image)
             
-            # Convert BGR to RGB
-            rgb_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
-            
-            # Store original image for resizing
-            self.original_image = rgb_image
-            
-            # Resize and display image
-            self.display_image(rgb_image)
-            
-            # Detect balls
-            self.detected_balls = self.object_detector.detect_balls(cv_image)
-        
-        except Exception as e:
-            rospy.logerr(f"Image conversion error: {e}")
+            except Exception as e:
+                rospy.logerr(f"Image conversion error: {e}")
 
     #ROS VIDEO STREAM 
     def display_image(self, image):
@@ -170,12 +171,11 @@ class PoolRobotController:
         
         # Convert to PhotoImage
         self.photo = ImageTk.PhotoImage(Image.fromarray(resized_image))
-
-
-        if not self.screenshot:
-            # Update label
-            self.image_label.config(image=self.photo)
-            self.image_label.image = self.photo
+        self.cv_image = resized_image
+    
+        # Update label
+        self.image_label.config(image=self.photo)
+        self.image_label.image = self.photo
 
     #Used to cv an image and label balls present in the image.
     def load_and_detect_balls(self):
@@ -347,7 +347,8 @@ class PoolRobotController:
         self.detected_balls = self.object_detector.detect_balls_static(frame)
         
         # Convert BGR to RGB
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        #frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame_rgb = frame
         
         # Resize image to fit GUI
         height, width = frame_rgb.shape[:2]
@@ -375,7 +376,8 @@ class PoolRobotController:
         self.detected_balls = scaled_balls
         
         # Create and store PhotoImage
-        self.photo = ImageTk.PhotoImage(Image.fromarray(resized_image))
+        self.cv_image = resized_image
+        self.photo = ImageTk.PhotoImage(Image.fromarray(self.cv_image))
         self.image_label.config(image=self.photo)
         
         # Enable shot controls
@@ -454,6 +456,6 @@ class PoolRobotController:
                 self.cap.release()
 
 # Run the application
-if __name__ == '__main__':
+if __name__ == '__main__':#
     app = PoolRobotController()
     app.run()

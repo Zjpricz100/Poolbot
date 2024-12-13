@@ -53,10 +53,10 @@ class ObjectDetector:
     
     def detect_balls(self, frame):    
         if len(frame.shape) > 2:
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            grey_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     
         # Apply GaussianBlur to reduce noise and improve circle detection
-        blurred = cv2.GaussianBlur(frame, (5, 5), 0)
+        blurred = cv2.GaussianBlur(grey_frame, (5, 5), 0)
 
         # Detect circles using HoughCircles
         circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, dp=1.3, minDist=30,
